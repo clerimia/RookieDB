@@ -221,15 +221,13 @@ public class TestLeafNode {
     @Test
     @Category(PublicTests.class)
     public void testScanAll() {
-        // Inserts 10 entries into an empty leaf and tests that scanAll retrieves
-        // the RecordId's in correct order.
+        // 向空叶子节点中插入10条记录，并测试scanAll能按正确顺序检索到RecordId
 
         int d = 5;
         setBPlusTreeMetadata(Type.intType(), d);
         LeafNode leaf = getEmptyLeaf(Optional.empty());
 
-        // Insert tuples in reverse order to make sure that scanAll is returning
-        // things in sorted order.
+        // 以倒序插入元组，以确保scanAll能够按排序后的顺序返回结果
         for (int i = 2 * d - 1; i >= 0; --i) {
             leaf.put(new IntDataBox(i), new RecordId(i, (short) i));
         }
@@ -240,21 +238,20 @@ public class TestLeafNode {
             assertEquals(new RecordId(i, (short) i), iter.next());
         }
 
-        // Iterator should be out of values after 10 calls to iter.next()
+        // 调用10次iter.next()后，迭代器应该没有更多值
         assertFalse(iter.hasNext());
     }
 
     @Test
     @Category(PublicTests.class)
     public void testScanGreaterEqual() {
-        // Same as above but only checks the latter 5 values with scanGreaterEqual
+        // 与上面的测试类似，但只使用scanGreaterEqual检查后5个值
 
         int d = 5;
         setBPlusTreeMetadata(Type.intType(), d);
         LeafNode leaf = getEmptyLeaf(Optional.empty());
 
-        // Insert tuples in reverse order to make sure that scanAll is returning
-        // things in sorted order.
+        // 以相反的顺序插入元组，以确保scanAll按排序顺序返回数据
         for (int i = 2 * d - 1; i >= 0; --i) {
             leaf.put(new IntDataBox(i), new RecordId(i, (short) i));
         }
@@ -270,9 +267,8 @@ public class TestLeafNode {
     @Test
     @Category(SystemTests.class)
     public void testMaxOrder() {
-        // Note that this white box test depend critically on the implementation
-        // of toBytes and includes a lot of magic numbers that won't make sense
-        // unless you read toBytes.
+        // 注意，这个白盒测试严重依赖于toBytes的实现，
+        // 并且包含了许多魔法数字，除非你阅读了toBytes方法，否则这些数字没有意义。
         assertEquals(4, Type.intType().getSizeInBytes());
         assertEquals(8, Type.longType().getSizeInBytes());
         assertEquals(10, RecordId.getSizeInBytes());

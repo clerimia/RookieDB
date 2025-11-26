@@ -17,6 +17,7 @@ import java.io.UncheckedIOException;
 import java.util.*;
 
 /**
+ * 持久化b+数
  * A persistent B+ tree.
  *
  *   BPlusTree tree = new BPlusTree(bufferManager, metadata, lockContext);
@@ -32,17 +33,17 @@ import java.util.*;
  *   tree.get(new IntDataBox(2)); // Optional.of(RecordId(2, 2))
  *   tree.get(new IntDataBox(3)); // Optional.empty();
  *
- *   // Iterate over the record ids in the tree.
- *   tree.scanEqual(new IntDataBox(2));        // [(2, 2)]
- *   tree.scanAll();                             // [(0, 0), (1, 1), (2, 2)]
- *   tree.scanGreaterEqual(new IntDataBox(1)); // [(1, 1), (2, 2)]
+ *   // Iterate over the record ids in the tree. 遍历 eq scanAll range
+ *   tree.scanEqual(new IntDataBox(2));         // [(2, 2)]
+ *   tree.scanAll();                            // [(0, 0), (1, 1), (2, 2)]
+ *   tree.scanGreaterEqual(new IntDataBox(1));  // [(1, 1), (2, 2)]
  *
  *   // Remove some elements from the tree.
  *   tree.get(new IntDataBox(0)); // Optional.of(RecordId(0, 0))
  *   tree.remove(new IntDataBox(0));
  *   tree.get(new IntDataBox(0)); // Optional.empty()
  *
- *   // Load the tree (same as creating a new tree).
+ *   // Load the tree (same as creating a new tree).  从磁盘中加载树
  *   BPlusTree fromDisk = new BPlusTree(bufferManager, metadata, lockContext);
  *
  *   // All the values are still there.
@@ -51,44 +52,40 @@ import java.util.*;
  *   fromDisk.get(new IntDataBox(2)); // Optional.of(RecordId(2, 2))
  */
 public class BPlusTree {
-    // Buffer manager
+    // 缓冲区管理器
     private BufferManager bufferManager;
 
-    // B+ tree metadata
+    // B+树元数据
     private BPlusTreeMetadata metadata;
 
-    // root of the B+ tree
+    // B+树的根
     private BPlusNode root;
 
-    // lock context for the B+ tree
+    // B+树的锁上下文
     private LockContext lockContext;
 
     // Constructors ////////////////////////////////////////////////////////////
     /**
-     * Construct a new B+ tree with metadata `metadata` and lock context `lockContext`.
-     * `metadata` contains information about the order, partition number,
-     * root page number, and type of keys.
+     * 使用元数据`metadata`和锁上下文`lockContext`构造新的B+树。
+     * `metadata`包含有关阶数、分区号、根页面号和键类型的信息。
      *
-     * If the specified order is so large that a single node cannot fit on a
-     * single page, then a BPlusTree exception is thrown. If you want to have
-     * maximally full B+ tree nodes, then use the BPlusTree.maxOrder function
-     * to get the appropriate order.
+     * 如果指定的阶数太大以至于单个节点无法适应单个页面，则抛出BPlusTree异常。
+     * 如果您希望具有最大填充的B+树节点，则使用BPlusTree.maxOrder函数获取适当的阶数。
      *
-     * We additionally write a row to the _metadata.indices table with metadata about
-     * the B+ tree:
+     * 我们还在_metadata.indices表中写入一行关于B+树的元数据：
      *
-     *   - the name of the tree (table associated with it and column it indexes)
-     *   - the key schema of the tree,
-     *   - the order of the tree,
-     *   - the partition number of the tree,
-     *   - the page number of the root of the tree.
+     *   - 树的名称（与其关联的表和索引的列）
+     *   - 树的键模式，
+     *   - 树的阶数，
+     *   - 树的分区号，
+     *   - 树根的页号。
      *
-     * All pages allocated on the given partition are serializations of inner and leaf nodes.
+     * 在给定分区上分配的所有页面都是内部节点和叶节点的序列化。
      */
     public BPlusTree(BufferManager bufferManager, BPlusTreeMetadata metadata, LockContext lockContext) {
-        // Prevent child locks - we only lock the entire tree as a whole.
+        // 防止子锁 - 我们只锁定整个树。
         lockContext.disableChildLocks();
-        // By default we want to read the whole tree
+        // 默认情况下我们要读取整棵树
         LockUtil.ensureSufficientLockHeld(lockContext, LockType.S);
 
         // Sanity checks.
@@ -116,10 +113,9 @@ public class BPlusTree {
             this.root = BPlusNode.fromBytes(this.metadata, bufferManager, lockContext,
                     this.metadata.getRootPageNum());
         } else {
-            // We're creating the root, which means we need exclusive access
-            // on the tree
+            // 我们正在创建根节点，这意味着我们需要对树进行独占访问
             LockUtil.ensureSufficientLockHeld(lockContext, LockType.X);
-            // Construct the root.
+            // 构造根节点。
             List<DataBox> keys = new ArrayList<>();
             List<RecordId> rids = new ArrayList<>();
             Optional<Long> rightSibling = Optional.empty();
@@ -129,7 +125,7 @@ public class BPlusTree {
 
     // Core API ////////////////////////////////////////////////////////////////
     /**
-     * Returns the value associated with `key`.
+     * 返回与`key`关联的值。 一对一给searchkey对应的值
      *
      *   // Insert a single value into the tree.
      *   DataBox key = new IntDataBox(42);
@@ -145,17 +141,23 @@ public class BPlusTree {
         // TODO(proj4_integration): Update the following line
         LockUtil.ensureSufficientLockHeld(lockContext, LockType.NL);
 
-        // TODO(proj2): implement
-
+        // 1.获取对应的叶子节点
+        LeafNode leafNode = root.get(key);
+        // 2.查询叶子节点
+        List<DataBox> keys = leafNode.getKeys();
+        for (int i = 0; i < keys.size(); i++) {
+            if (keys.get(i).equals(key)) {
+                return Optional.of(leafNode.getRids().get(i));
+            }
+        }
+        // 3.没有就返回空
         return Optional.empty();
     }
 
     /**
-     * scanEqual(k) is equivalent to get(k) except that it returns an iterator
-     * instead of an Optional. That is, if get(k) returns Optional.empty(),
-     * then scanEqual(k) returns an empty iterator. If get(k) returns
-     * Optional.of(rid) for some rid, then scanEqual(k) returns an iterator
-     * over rid.
+     * scanEqual(k)等价于get(k)，但它返回迭代器而不是Optional。
+     * 也就是说，如果get(k)返回Optional.empty()，则scanEqual(k)返回空迭代器。
+     * 如果get(k)为某个rid返回Optional.of(rid)，则scanEqual(k)返回rid上的迭代器。
      */
     public Iterator<RecordId> scanEqual(DataBox key) {
         typecheck(key);
@@ -173,8 +175,7 @@ public class BPlusTree {
     }
 
     /**
-     * Returns an iterator over all the RecordIds stored in the B+ tree in
-     * ascending order of their corresponding keys.
+     * 返回B+树中存储的所有RecordIds的迭代器，按其对应键的升序排列。
      *
      *   // Create a B+ tree and insert some values into it.
      *   BPlusTree tree = new BPlusTree("t.txt", Type.intType(), 4);
@@ -192,24 +193,21 @@ public class BPlusTree {
      *   iter.next(); // RecordId(5, 5)
      *   iter.next(); // NoSuchElementException
      *
-     * Note that you CAN NOT materialize all record ids in memory and then
-     * return an iterator over them. Your iterator must lazily scan over the
-     * leaves of the B+ tree. Solutions that materialize all record ids in
-     * memory will receive 0 points.
+     * 注意您不能将所有记录ID物化到内存中然后返回它们的迭代器。
+     * 您的迭代器必须惰性地扫描B+树的叶节点。
+     * 物化所有记录ID到内存中的解决方案将得分为0。
      */
     public Iterator<RecordId> scanAll() {
         // TODO(proj4_integration): Update the following line
         LockUtil.ensureSufficientLockHeld(lockContext, LockType.NL);
 
         // TODO(proj2): Return a BPlusTreeIterator.
-
-        return Collections.emptyIterator();
+        return new BPlusTreeIterator();
     }
 
     /**
-     * Returns an iterator over all the RecordIds stored in the B+ tree that
-     * are greater than or equal to `key`. RecordIds are returned in ascending
-     * of their corresponding keys.
+     * 返回B+树中存储的大于或等于`key`的所有RecordIds的迭代器。
+     * RecordIds按其对应键的升序返回。
      *
      *   // Insert some values into a tree.
      *   tree.put(new IntDataBox(2), new RecordId(2, (short) 2));
@@ -224,10 +222,9 @@ public class BPlusTree {
      *   iter.next(); // RecordId(5, 5)
      *   iter.next(); // NoSuchElementException
      *
-     * Note that you CAN NOT materialize all record ids in memory and then
-     * return an iterator over them. Your iterator must lazily scan over the
-     * leaves of the B+ tree. Solutions that materialize all record ids in
-     * memory will receive 0 points.
+     * 注意您不能将所有记录ID物化到内存中然后返回它们的迭代器。
+     * 您的迭代器必须惰性地扫描B+树的叶节点。
+     * 物化所有记录ID到内存中的解决方案将得分为0。
      */
     public Iterator<RecordId> scanGreaterEqual(DataBox key) {
         typecheck(key);
@@ -235,13 +232,11 @@ public class BPlusTree {
         LockUtil.ensureSufficientLockHeld(lockContext, LockType.NL);
 
         // TODO(proj2): Return a BPlusTreeIterator.
-
-        return Collections.emptyIterator();
+        return new BPlusTreeIterator(key);
     }
 
     /**
-     * Inserts a (key, rid) pair into a B+ tree. If the key already exists in
-     * the B+ tree, then the pair is not inserted and an exception is raised.
+     * 将(key, rid)对插入B+树。如果键已存在于B+树中，则不插入该对并引发异常。
      *
      *   DataBox key = new IntDataBox(42);
      *   RecordId rid = new RecordId(42, (short) 42);
@@ -254,46 +249,76 @@ public class BPlusTree {
         LockUtil.ensureSufficientLockHeld(lockContext, LockType.NL);
 
         // TODO(proj2): implement
-        // Note: You should NOT update the root variable directly.
-        // Use the provided updateRoot() helper method to change
-        // the tree's root if the old root splits.
-
-        return;
+        // 注意：您不应直接更新根变量。
+        // 如果旧根节点分裂，请使用提供的updateRoot()辅助方法来更改树的根节点。
+        // 1.调用根节点的put方法
+        Optional<Pair<DataBox, Long>> optional = root.put(key, rid);
+        // 2.判断是否有Move UP
+        if (optional.isPresent()) {
+            // 3.有Move UP, 直接创建新的root节点
+            Pair<DataBox, Long> pair = optional.get();
+            DataBox newKey = pair.getFirst();
+            long leftPageNum = root.getPage().getPageNum(); // 原来的root
+            Long rightPageNum = pair.getSecond();           // 新分裂出的节点
+            // 4.初始化数据
+            List<DataBox> keys = new ArrayList<>();
+            List<Long> children = new ArrayList<>();
+            keys.add(newKey);
+            children.add(leftPageNum);
+            children.add(rightPageNum);
+            // 5.创建新的根节点
+            InnerNode node = new InnerNode(metadata, bufferManager, keys, children, lockContext);
+            // 6.更新root
+            updateRoot(node);
+        }
     }
 
     /**
-     * Bulk loads data into the B+ tree. Tree should be empty and the data
-     * iterator should be in sorted order (by the DataBox key field) and
-     * contain no duplicates (no error checking is done for this).
+     * 将数据批量加载到B+树中。树应该为空，数据迭代器应该按排序顺序
+     *（按DataBox键字段）并且不包含重复项（不对此进行错误检查）。
      *
-     * fillFactor specifies the fill factor for leaves only; inner nodes should
-     * be filled up to full and split in half exactly like in put.
+     * fillFactor仅指定叶节点的填充因子；内部节点应该填充满并像在put中一样精确地拆分一半。
      *
-     * This method should raise an exception if the tree is not empty at time
-     * of bulk loading. Bulk loading is used when creating a new Index, so think 
-     * about what an "empty" tree should look like. If data does not meet the 
-     * preconditions (contains duplicates or not in order), the resulting 
-     * behavior is undefined. Undefined behavior means you can handle these 
-     * cases however you want (or not at all) and you are not required to 
-     * write any explicit checks.
+     * 如果在批量加载时树不为空，此方法应引发异常。
+     * 批量加载用于创建新索引，因此请考虑"空"树应该是什么样子。
+     * 如果数据不满足前提条件（包含重复项或无序），则结果行为未定义。
+     * 未定义行为意味着您可以随意处理这些情况（或者根本不处理），
+     * 并且您不需要编写任何显式检查。
      *
-     * The behavior of this method should be similar to that of InnerNode's
-     * bulkLoad (see comments in BPlusNode.bulkLoad).
+     * 此方法的行为应类似于InnerNode的bulkLoad（参见BPlusNode.bulkLoad中的注释）。
      */
     public void bulkLoad(Iterator<Pair<DataBox, RecordId>> data, float fillFactor) {
         // TODO(proj4_integration): Update the following line
         LockUtil.ensureSufficientLockHeld(lockContext, LockType.NL);
 
         // TODO(proj2): implement
-        // Note: You should NOT update the root variable directly.
-        // Use the provided updateRoot() helper method to change
-        // the tree's root if the old root splits.
+        // 注意：您不应直接更新根变量。
+        // 如果旧根节点分裂，请使用提供的updateRoot()辅助方法来更改树的根节点。
+        while (data.hasNext()) {
+            // 1. 直接调用root的批量插入
+            Optional<Pair<DataBox, Long>> optional = root.bulkLoad(data, fillFactor);
+            // 2. 判断是否有up
+            if (optional.isPresent()) {
+                // 3. 由于这是来自root的up, 直接创建新的页面来承载就行
+                Pair<DataBox, Long> pair = optional.get();
 
-        return;
+                DataBox newKey = pair.getFirst();
+                long leftPageNum = root.getPage().getPageNum();
+                Long rightPageNum = pair.getSecond();
+                List<DataBox> keys = new ArrayList<>();
+                keys.add(newKey);
+                List<Long> children = new ArrayList<>();
+                children.add(leftPageNum);
+                children.add(rightPageNum);
+
+                InnerNode node = new InnerNode(metadata, bufferManager, keys, children, lockContext);
+                updateRoot(node);
+            }
+        }
     }
 
     /**
-     * Deletes a (key, rid) pair from a B+ tree.
+     * 从B+树中删除(key, rid)对。
      *
      *   DataBox key = new IntDataBox(42);
      *   RecordId rid = new RecordId(42, (short) 42);
@@ -309,14 +334,13 @@ public class BPlusTree {
         LockUtil.ensureSufficientLockHeld(lockContext, LockType.NL);
 
         // TODO(proj2): implement
-
-        return;
+        // 调用root的remove即可
+        root.remove(key);
     }
 
     // Helpers /////////////////////////////////////////////////////////////////
     /**
-     * Returns a sexp representation of this tree. See BPlusNode.toSexp for
-     * more information.
+     * 返回此树的sexp表示。有关更多信息，请参见BPlusNode.toSexp。
      */
     public String toSexp() {
         // TODO(proj4_integration): Update the following line
@@ -325,16 +349,14 @@ public class BPlusTree {
     }
 
     /**
-     * Debugging large B+ trees is hard. To make it a bit easier, we can print
-     * out a B+ tree as a DOT file which we can then convert into a nice
-     * picture of the B+ tree. tree.toDot() returns the contents of DOT file
-     * which illustrates the B+ tree. The details of the file itself is not at
-     * all important, just know that if you call tree.toDot() and save the
-     * output to a file called tree.dot, then you can run this command
+     * 调试大型B+树很困难。为了使其更容易一些，我们可以将B+树打印为DOT文件，
+     * 然后将其转换为B+树的漂亮图片。tree.toDot()返回说明B+树的DOT文件的内容。
+     * 文件本身的细节并不重要，只需知道如果您调用tree.toDot()并将输出保存到名为tree.dot的文件中，
+     * 然后您可以运行此命令
      *
      *   dot -T pdf tree.dot -o tree.pdf
      *
-     * to create a PDF of the tree.
+     * 来创建树的PDF。
      */
     public String toDot() {
         // TODO(proj4_integration): Update the following line
@@ -349,10 +371,9 @@ public class BPlusTree {
     }
 
     /**
-     * This function is very similar to toDot() except that we write
-     * the dot representation of the B+ tree to a dot file and then
-     * convert that to a PDF that will be stored in the src directory. Pass in a
-     * string with the ".pdf" extension included at the end (ex "tree.pdf").
+     * 此函数与toDot()非常相似，只不过我们将B+树的点表示写入点文件，
+     * 然后将其转换为将存储在src目录中的PDF。
+     * 传入一个以".pdf"扩展名结尾的字符串（例如"tree.pdf"）。
      */
     public void toDotPDFFile(String filename) {
         String tree_string = toDot();
@@ -384,8 +405,7 @@ public class BPlusTree {
     }
 
     /**
-     * Returns the largest number d such that the serialization of a LeafNode
-     * with 2d entries and an InnerNode with 2d keys will fit on a single page.
+     * 返回最大数字d，使得具有2d个条目的LeafNode和具有2d个键的InnerNode将适合单个页面。
      */
     public static int maxOrder(short pageSize, Type keySchema) {
         int leafOrder = LeafNode.maxOrder(pageSize, keySchema);
@@ -393,13 +413,13 @@ public class BPlusTree {
         return Math.min(leafOrder, innerOrder);
     }
 
-    /** Returns the partition number that the B+ tree resides on. */
+    /** 返回B+树所在的分区号。 */
     public int getPartNum() {
         return metadata.getPartNum();
     }
 
     /**
-     * Save the new root page number and update the tree's metadata.
+     * 保存新的根页面号并更新树的元数据。
      **/
     private void updateRoot(BPlusNode newRoot) {
         this.root = newRoot;
@@ -421,21 +441,70 @@ public class BPlusTree {
     }
 
     // Iterator ////////////////////////////////////////////////////////////////
+    /**
+     * 迭代器，用于迭代B+树的记录 RecordId
+     * */
     private class BPlusTreeIterator implements Iterator<RecordId> {
-        // TODO(proj2): Add whatever fields and constructors you want here.
+        private LeafNode curLeaf;
+        private int index;
+        private List<DataBox> keys; // 缓存 keys
+        private List<RecordId> rids; // 缓存 rids
+
+        public BPlusTreeIterator() {
+            curLeaf = root.getLeftmostLeaf();
+            keys = curLeaf.getKeys();
+            rids = curLeaf.getRids();
+            index = 0;
+        }
+
+        public BPlusTreeIterator(DataBox key) {
+            curLeaf = root.get(key);
+            keys = curLeaf.getKeys();
+            rids = curLeaf.getRids();
+
+            // 找到第一个 >= key 的位置, 找不到就是size
+            int pos = 0;
+            for (pos = 0; pos < keys.size(); pos++) {
+                if (key.compareTo(keys.get(pos)) <= 0) {
+                    break;
+                }
+            }
+            index = pos;
+        }
 
         @Override
         public boolean hasNext() {
-            // TODO(proj2): implement
-
-            return false;
+            return curLeaf.getRightSibling().isPresent() || index < rids.size();
         }
 
         @Override
         public RecordId next() {
-            // TODO(proj2): implement
+            if (index < rids.size()) {
+                return rids.get(index++);
+            } else {
+                if (curLeaf.getRightSibling().isPresent()) {
+                    curLeaf = curLeaf.getRightSibling().get();
+                    keys = curLeaf.getKeys();
+                    rids = curLeaf.getRids();
+                    index = 0;
 
-            throw new NoSuchElementException();
+                    // 处理空节点：跳过直到找到非空节点
+                    while (rids.isEmpty()) {
+                        if (!curLeaf.getRightSibling().isPresent()) {
+                            throw new NoSuchElementException();
+                        }
+                        curLeaf = curLeaf.getRightSibling().get();
+                        keys = curLeaf.getKeys();
+                        rids = curLeaf.getRids();
+                    }
+                    return rids.get(index++);
+                }
+
+
+                throw new NoSuchElementException();
+            }
         }
+
     }
+
 }

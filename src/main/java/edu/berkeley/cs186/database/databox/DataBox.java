@@ -26,9 +26,9 @@ import java.nio.charset.Charset;
  *   }
  */
 public abstract class DataBox implements Comparable<DataBox> {
-    public abstract Type type();
+    public abstract Type type(); // 类型
 
-    public abstract TypeId getTypeId();
+    public abstract TypeId getTypeId(); // 是一个枚举
 
     public boolean getBool() { throw new RuntimeException("not boolean type"); }
 

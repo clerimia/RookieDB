@@ -4,33 +4,29 @@ import edu.berkeley.cs186.database.databox.Type;
 import edu.berkeley.cs186.database.databox.TypeId;
 import edu.berkeley.cs186.database.table.Record;
 
-/** Metadata about a B+ tree. */
+/** 关于B+树的元数据 */
 public class BPlusTreeMetadata {
-    // Table for which this B+ tree is for
+    // 此B+树所属的表
     private final String tableName;
 
-    // Column that this B+ tree uses as a search key
+    // 此B+树用作搜索键的列
     private final String colName;
 
-    // B+ trees map keys (of some type) to record ids. This is the type of the
-    // keys.
+    // B+树将键（某种类型）映射到记录ID。这是键的类型。
     private final Type keySchema;
 
-    // The order of the tree. Given a tree of order d, its inner nodes store
-    // between d and 2d keys and between d+1 and 2d+1 children pointers. Leaf
-    // nodes store between d and 2d (key, record id) pairs. Notable exceptions
-    // include the root node and leaf nodes that have been deleted from; these
-    // may contain fewer than d entries.
+    // 树的阶数。给定阶数为d的树，其内部节点存储d到2d个键和d+1到2d+1个子节点指针。
+    // 叶节点存储d到2d个（键，记录ID）对。值得注意的例外包括根节点和已删除的叶节点；
+    // 这些节点可能包含少于d个条目。
     private final int order;
 
-    // The partition that the B+ tree allocates pages from. Every node of the B+ tree
-    // is stored on a different page on this partition.
+    // B+树分配页面的分区。B+树的每个节点都存储在此分区的不同页面上。
     private final int partNum;
 
-    // The page number of the root node.
+    // 根节点的页号。
     private long rootPageNum;
 
-    // The height of this tree.
+    // 树的高度。
     private int height;
 
     public BPlusTreeMetadata(String tableName, String colName, Type keySchema, int order, int partNum,
@@ -57,8 +53,8 @@ public class BPlusTreeMetadata {
     }
 
     /**
-     * @return a record containing this B+ tree's metadata. Useful for serializing
-     * metadata about the tree (see Database#getIndexInfoSchema).
+     * @return 包含此B+树元数据的记录。用于序列化树的元数据
+     * (参见 Database#getIndexInfoSchema)。
      */
     public Record toRecord() {
         return new Record(tableName, colName, order, partNum, rootPageNum,
