@@ -1,88 +1,87 @@
 package edu.berkeley.cs186.database.memory;
 
 /**
- * Buffer frame.
+ * 缓冲区帧。
  */
 abstract class BufferFrame {
     Object tag = null;
     private int pinCount = 0;
 
     /**
-     * Pin buffer frame; cannot be evicted while pinned. A "hit" happens when the
-     * buffer frame gets pinned.
+     * 固定缓冲区帧；固定时不能被驱逐。当缓冲区帧被固定时会发生"命中"。
      */
     void pin() {
         ++pinCount;
     }
 
     /**
-     * Unpin buffer frame.
+     * 解除缓冲区帧的固定。
      */
     void unpin() {
         if (!isPinned()) {
-            throw new IllegalStateException("cannot unpin unpinned frame");
+            throw new IllegalStateException("无法解除未固定的帧");
         }
         --pinCount;
     }
 
     /**
-     * @return whether this frame is pinned
+     * @return 此帧是否被固定
      */
     boolean isPinned() {
         return pinCount > 0;
     }
 
     /**
-     * @return whether this frame is valid
+     * @return 此帧是否有效
      */
     abstract boolean isValid();
 
     /**
-     * @return page number of this frame
+     * @return 此帧的页号
      */
     abstract long getPageNum();
 
     /**
-     * Flushes this buffer frame to disk, but does not unload it.
+     * 将此缓冲区帧刷新到磁盘，但不卸载它。
      */
     abstract void flush();
 
     /**
-     * Read from the buffer frame.
-     * @param position position in buffer frame to start reading
-     * @param num number of bytes to read
-     * @param buf output buffer
+     * 从缓冲区帧读取。
+     * @param position 开始读取的缓冲区帧位置
+     * @param num 要读取的字节数
+     * @param buf 输出缓冲区
      */
     abstract void readBytes(short position, short num, byte[] buf);
 
     /**
-     * Write to the buffer frame, and mark frame as dirtied.
-     * @param position position in buffer frame to start writing
-     * @param num number of bytes to write
-     * @param buf input buffer
+     * 写入缓冲区帧，并将帧标记为脏。
+     * @param position 开始写入的缓冲区帧位置
+     * @param num 要写入的字节数
+     * @param buf 输入缓冲区
      */
     abstract void writeBytes(short position, short num, byte[] buf);
 
     /**
-     * Requests a valid Frame object for the page (if invalid, a new Frame object is returned).
-     * Frame is pinned on return.
+     * 请求页面的有效帧对象（如果无效，则返回新的帧对象）。
+     * 返回时帧被固定。
      */
     abstract BufferFrame requestValidFrame();
 
     /**
-     * @return amount of space available to user of the frame
+     * @return 帧用户可用的空间量
      */
     short getEffectivePageSize() {
         return BufferManager.EFFECTIVE_PAGE_SIZE;
     }
 
     /**
-     * @param pageLSN new pageLSN of the page loaded in this frame
+     * @param pageLSN 加载到此帧中的页面的新pageLSN
      */
     abstract void setPageLSN(long pageLSN);
 
     /**
-     * @return pageLSN of the page loaded in this frame
+     * @return 加载到此帧中的页面的pageLSN
      */
     abstract long getPageLSN();
 }

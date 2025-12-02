@@ -9,26 +9,22 @@ import java.net.ServerSocket;
 import java.net.Socket;
 
 /**
- * WARNING: We provide the option to run RookieDB as a server for the sole
- * purpose of demonstrating that locking works with multiple clients. We do not
- * recommend trying to expose this server to the open internet, as there is no
- * built-in means of authentication. Even if the data stored in your instance
- * is toy data that you don't mind being leaked, the interface provided allows
- * for almost arbitrary write access to the files in the demo/ directory. This
- * means in the best-case scenario a malicious entity can thrash your disk to
- * their heart's content, and in worse cases populate your disk with
- * malicious files.
+ * 警告：我们提供将RookieDB作为服务器运行的选项，仅仅是为了演示锁机制在多客户端环境下的工作原理。
+ * 我们不建议将此服务器暴露到公共互联网上，因为没有内置的身份验证机制。
+ * 即使您的实例中存储的是您不介意泄露的测试数据，提供的接口也允许对demo/目录中的文件进行几乎任意的写入访问。
+ * 这意味着在最好的情况下，恶意实体可以随意占用您的磁盘空间，
+ * 而在更坏的情况下，可能会用恶意文件填充您的磁盘。
  *
- * - Former TA who doesn't want to become a 161 case study
+ * - 一位不想成为161案例研究的前任助教
  *
- * To use RookieDB in Server mode, run the main function in this file. This
- * will start a server that waits on port 18600 on your local machine. Then,
- * run `python client.py` in the root of the project directory (needs Python 3)
+ * 要在服务器模式下使用RookieDB，请运行本文件中的main函数。
+ * 这将在本地机器的18600端口启动一个服务器。
+ * 然后，在项目根目录下运行`python client.py`（需要Python 3）
  *
- * Alternatively, use a utility like `netcat` or `nc` to open a connection, i.e.:
+ * 或者，使用像`netcat`或`nc`这样的工具来建立连接，例如：
  * - `netcat localhost 18600`
- * - `nc localhost 18600` (depending on how netcat is installed)
- * - `ncat localhost 18600` (For window users. May need to download first)
+ * - `nc localhost 18600`（取决于netcat的安装方式）
+ * - `ncat localhost 18600`（适用于Windows用户，可能需要先下载）
  */
 public class Server {
     public static final int DEFAULT_PORT = 18600;
@@ -36,11 +32,10 @@ public class Server {
     private int port;
 
     public static void main(String[] args) {
-        // Note: you'll probably want to complete Project 4 before
-        // attempting to run this.
+        // 注意：在尝试运行之前，您可能需要先完成项目4。
         Database db = new Database("demo", 25, new LockManager());
         
-        // Use the following after completing project 5 (recovery)
+        // 完成项目5（恢复）后使用以下代码
         // Database db = new Database("demo", 25, new LockManager(), new ClockEvictionPolicy(), true);
 
         Server server = new Server();

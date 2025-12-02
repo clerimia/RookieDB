@@ -43,7 +43,7 @@ public class TestBPlusTree {
     // max 1 I/Os per iterator next, unless overridden
     private static final int MAX_IO_PER_NEXT = 1;
 
-    // 3 seconds max per method tested.
+    // 10 seconds max per method tested.
     @Rule
     public TestRule globalTimeout = new DisableOnDebug(Timeout.millis((long) (
                 10000 * TimeoutScaling.factor)));
@@ -60,9 +60,9 @@ public class TestBPlusTree {
 
     @After
     public void cleanup() {
-        // If you run into errors with this line, try commenting it out and
-        // seeing if any other errors appear which may be preventing
-        // certain pages from being unpinned correctly.
+
+        // 如果您在这一行遇到错误，请尝试将其注释掉，
+        // 然后查看是否出现其他错误，这些错误可能是导致某些页面未能正确取消固定的原因。
         this.bufferManager.close();
     }
 
@@ -72,6 +72,7 @@ public class TestBPlusTree {
                                               0, DiskSpaceManager.INVALID_PAGE_NUM, -1);
     }
 
+    // B+ Tree
     private BPlusTree getBPlusTree(Type keySchema, int order) {
         setBPlusTreeMetadata(keySchema, order);
         return new BPlusTree(bufferManager, metadata, treeContext);

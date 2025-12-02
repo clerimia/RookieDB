@@ -5,36 +5,34 @@ import java.util.List;
 import java.util.NoSuchElementException;
 
 /**
- * Iterator that concatenates a group of backtracking iterables together.
- * For example, if you had backtracking iterators containing the following:
+ * 将一组支持回溯的可迭代对象连接起来的迭代器。
+ * 例如，如果你有包含以下内容的回溯迭代器：
  * - [1,2,3]
  * - []
  * - [4,5,6]
  * - [7,8]
  *
- * Concatenating them with this class would produce a backtracking iterator
- * over the values [1,2,3,4,5,6,7,8].
+ * 使用此类连接它们会产生一个值为[1,2,3,4,5,6,7,8]的回溯迭代器。
  */
 public class ConcatBacktrackingIterator<T> implements BacktrackingIterator<T> {
-    // Iterator of iterables that we're concatenating
+    // 我们正在连接的可迭代对象的迭代器
     private BacktrackingIterator<BacktrackingIterable<T>> outerIterator;
-    // List of iterables we're concatenating
+    // 我们正在连接的可迭代对象列表
     private List<BacktrackingIterable<T>> iterables;
-    // The iterator that we yielded the previous item from
+    // 产生上一个项目的迭代器
     private BacktrackingIterator<T> prevItemIterator;
-    // The iterator we'll be yielding the next item from
+    // 我们将从中产生下一个项目的迭代器
     private BacktrackingIterator<T> nextItemIterator;
-    // The iterator with the item that's currently marked
+    // 包含当前标记项目的迭代器
     private BacktrackingIterator<T> markItemIterator;
-    // Indices of the above three iterator's source iterables
+    // 上述三个迭代器源可迭代对象的索引
     private int prevIndex = -1;
     private int nextIndex = -1;
     private int markIndex = -1;
 
     /**
-     * @param outerIterator An iterator over iterable objects which we want to concatenate.
-     *                      Any values this iterator yields will be drawn from iterators created
-     *                      from outerIterator's contents.
+     * @param outerIterator 一个迭代器，用于遍历我们想要连接的可迭代对象。
+     *                      此迭代器产生的任何值都将来自从outerIterator内容创建的迭代器。
      */
     public ConcatBacktrackingIterator(BacktrackingIterator<BacktrackingIterable<T>> outerIterator) {
         this.iterables = new ArrayList<>();
@@ -45,8 +43,8 @@ public class ConcatBacktrackingIterator<T> implements BacktrackingIterator<T> {
     }
 
     /**
-     * Sets nextItemIterator to the next non-empty iterator in our collection, or the last one if all remaining
-     * iterators are empty. Lazily adds in the iterables from outerIterator as needed to the list of iterables.
+     * 将nextItemIterator设置为我们集合中的下一个非空迭代器，如果所有剩余的迭代器都为空，则设置为最后一个迭代器。
+     * 根据需要从outerIterator惰性地添加可迭代对象到可迭代对象列表中。
      */
     private void moveNextToNonEmpty() {
         while (!this.nextItemIterator.hasNext()) {
@@ -79,7 +77,7 @@ public class ConcatBacktrackingIterator<T> implements BacktrackingIterator<T> {
     @Override
     public void markPrev() {
         if (prevIndex == -1) {
-            // We haven't yielded an item yet, or since the most recent reset
+            // 我们还没有产生项目，或者自从最近一次重置以来没有产生项目
             return;
         }
         this.markItemIterator = this.prevItemIterator;
@@ -98,14 +96,14 @@ public class ConcatBacktrackingIterator<T> implements BacktrackingIterator<T> {
     @Override
     public void reset() {
         if (markIndex == -1) {
-            // Nothing was marked
+            // 没有标记任何内容
             return;
         }
-        // We no longer have a prev
+        // 我们不再有前一个项目
         prevItemIterator = null;
         prevIndex = -1;
 
-        // Set our next to wherever was marked
+        // 将我们的下一个设置为标记的位置
         this.nextItemIterator = this.markItemIterator;
         this.nextItemIterator.reset();
         nextIndex = markIndex;

@@ -37,7 +37,8 @@ public class TestBPlusNode {
     private BPlusTreeMetadata metadata;
     private LockContext treeContext;
 
-    // 1 seconds max per method tested.
+    // Timeout scale factor
+    // 超时时间
     @Rule
     public TestRule globalTimeout = new DisableOnDebug(Timeout.millis((long) (
                 1000 * TimeoutScaling.factor)));

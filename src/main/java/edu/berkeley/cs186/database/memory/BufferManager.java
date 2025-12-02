@@ -14,43 +14,42 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiConsumer;
 
 /**
- * Implementation of a buffer manager, with configurable page replacement policies.
- * Data is stored in page-sized byte arrays, and returned in a Frame object specific
- * to the page loaded (evicting and loading a new page into the frame will result in
- * a new Frame object, with the same underlying byte array), with old Frame objects
- * backed by the same byte array marked as invalid.
+ * 缓冲区管理器的实现，支持可配置的页面替换策略。
+ * 数据存储在页面大小的字节数组中，并在返回时包装在特定于加载页面的Frame对象中
+ * （驱逐页面并在框架中加载新页面将产生一个新的Frame对象，但底层字节数组相同），
+ * 使用相同字节数组支持的旧Frame对象将被标记为无效。
  */
 public class BufferManager implements AutoCloseable {
-    // We reserve 36 bytes on each page for bookkeeping for recovery
-    // (used to store the pageLSN, and to ensure that a redo-only/undo-only log record can
-    // fit on one page).
+    // 我们在每个页面上保留36个字节用于恢复的簿记
+    // （用于存储pageLSN，并确保仅重做/仅撤销的日志记录可以
+    // 适合一页）。
     public static final short RESERVED_SPACE = 36;
 
-    // Effective page size available to users of buffer manager.
+    // 缓冲区管理器用户可用的有效页面大小。
     public static final short EFFECTIVE_PAGE_SIZE = (short) (DiskSpaceManager.PAGE_SIZE - RESERVED_SPACE);
 
-    // Buffer frames
+    // 缓冲区帧数组
     private Frame[] frames;
 
-    // Reference to the disk space manager underneath this buffer manager instance.
+    // 指向此缓冲区管理器实例下的磁盘空间管理器的引用。
     private DiskSpaceManager diskSpaceManager;
 
-    // Map of page number to frame index
+    // 页面号到帧索引的映射
     private Map<Long, Integer> pageToFrame;
 
-    // Lock on buffer manager
+    // 缓冲区管理器上的锁
     private ReentrantLock managerLock;
 
-    // Eviction policy
+    // 驱逐策略
     private EvictionPolicy evictionPolicy;
 
-    // Index of first free frame
+    // 第一个空闲帧的索引
     private int firstFreeIndex;
 
-    // Recovery manager
+    // 恢复管理器
     private RecoveryManager recoveryManager;
 
-    // Count of number of I/Os
+    // I/O操作计数
     private long numIOs = 0;
 
     /**
