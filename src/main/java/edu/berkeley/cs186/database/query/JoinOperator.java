@@ -8,38 +8,38 @@ import edu.berkeley.cs186.database.table.stats.TableStats;
 
 public abstract class JoinOperator extends QueryOperator {
     public enum JoinType {
-        SNLJ,
-        PNLJ,
-        BNLJ,
-        SORTMERGE,
-        SHJ,
-        GHJ
+        SNLJ, // 简单嵌套循环连接
+        PNLJ, // 页嵌套循环连接
+        BNLJ, // 块嵌套循环连接
+        SORTMERGE, // 排序合并连接
+        SHJ, // 简单哈希连接 也就是需要左表能够完全载入内存
+        GHJ  // 优雅哈希连接 GraceHashJoin
     }
-    protected JoinType joinType;
+    protected JoinType joinType; // Join方式
 
-    // the source operators
+    // 源操作符
     private QueryOperator leftSource;
     private QueryOperator rightSource;
 
-    // join column indices
+    // 连接列索引
     private int leftColumnIndex;
     private int rightColumnIndex;
 
-    // join column names
+    // 连接列名称
     private String leftColumnName;
     private String rightColumnName;
 
-    // current transaction
+    // 当前事务
     private TransactionContext transaction;
 
     /**
-     * Create a join operator that pulls tuples from leftSource and rightSource.
-     * Returns tuples for which leftColumnName and rightColumnName are equal.
+     * 创建一个连接操作符，从leftSource和rightSource中提取元组。
+     * 返回leftColumnName和rightColumnName相等的元组。
      *
-     * @param leftSource the left source operator
-     * @param rightSource the right source operator
-     * @param leftColumnName the column to join on from leftSource
-     * @param rightColumnName the column to join on from rightSource
+     * @param leftSource 左源操作符
+     * @param rightSource 右源操作符
+     * @param leftColumnName 从leftSource连接的列名
+     * @param rightColumnName 从rightSource连接的列名
      */
     public JoinOperator(QueryOperator leftSource,
                  QueryOperator rightSource,
@@ -59,21 +59,21 @@ public abstract class JoinOperator extends QueryOperator {
 
     @Override
     public QueryOperator getSource() {
-        throw new RuntimeException("There is no single source for join operators. use " +
-                                     "getRightSource and getLeftSource and the corresponding set methods.");
+        throw new RuntimeException("连接操作符没有单一源。请使用" +
+                                     "getRightSource和getLeftSource以及相应的set方法。");
     }
 
     @Override
     public Schema computeSchema() {
-        // Get lists of the field names of the records
+        // 获取记录的字段名列表
         Schema leftSchema = this.leftSource.getSchema();
         Schema rightSchema = this.rightSource.getSchema();
 
-        // Set up join column attributes
+        // 设置连接列属性
         this.leftColumnIndex = leftSchema.findField(this.leftColumnName);
         this.rightColumnIndex = rightSchema.findField(this.rightColumnName);
 
-        // Return concatenated schema
+        // 返回连接后的模式
         return leftSchema.concat(rightSchema);
     }
 
@@ -97,9 +97,9 @@ public abstract class JoinOperator extends QueryOperator {
     }
 
     /**
-     * Estimates the table statistics for the result of executing this query operator.
+     * 估计执行此查询操作符的结果表统计信息。
      *
-     * @return estimated TableStats
+     * @return 估计的TableStats
      */
     @Override
     public TableStats estimateStats() {
@@ -111,65 +111,60 @@ public abstract class JoinOperator extends QueryOperator {
     }
 
     /**
-     * @return the query operator which supplies the left records of the join
+     * @return 提供连接左记录的查询操作符
      */
     protected QueryOperator getLeftSource() {
         return this.leftSource;
     }
 
     /**
-     * @return the query operator which supplies the right records of the join
+     * @return 提供连接右记录的查询操作符
      */
     protected QueryOperator getRightSource() {
         return this.rightSource;
     }
 
     /**
-     * @return the transaction context this operator is being executed within
+     * @return 此操作符执行所在的事务上下文
      */
     public TransactionContext getTransaction() {
         return this.transaction;
     }
 
     /**
-     * @return the name of the left column being joined on
+     * @return 被连接的左列名称
      */
     public String getLeftColumnName() {
         return this.leftColumnName;
     }
 
     /**
-     * @return the name of the right column being joined on
+     * @return 被连接的右列名称
      */
     public String getRightColumnName() {
         return this.rightColumnName;
     }
 
     /**
-     * @return the position of the column being joined on in the left relation's
-     * schema. Can be used to determine which value in the left relation's records
-     * to check for equality on.
+     * @return 左关系模式中被连接列的位置。可用于确定左关系记录中哪个值用于相等性检查。
      */
     public int getLeftColumnIndex() {
         return this.leftColumnIndex;
     }
 
     /**
-     * @return the position of the column being joined on in the right relation's
-     * schema. Can be used to determine which value in the right relation's records
-     * to check for equality on.
+     * @return 右关系模式中被连接列的位置。可用于确定右关系记录中哪个值用于相等性检查。
      */
     public int getRightColumnIndex() {
         return this.rightColumnIndex;
     }
 
-    // Helpers /////////////////////////////////////////////////////////////////
+    // 辅助方法 /////////////////////////////////////////////////////////////////
 
     /**
-     * @return 0 if leftRecord and rightRecord match on their join values,
-     * a negative value if leftRecord's join value is less than rightRecord's
-     * join value, or a positive value if leftRecord's join value is greater
-     * than rightRecord's join value.
+     * @return 如果leftRecord和rightRecord在它们的连接值上匹配则返回0，
+     * 如果leftRecord的连接值小于rightRecord的连接值则返回负值，
+     * 如果leftRecord的连接值大于rightRecord的连接值则返回正值。
      */
     public int compare(Record leftRecord, Record rightRecord) {
         DataBox leftRecordValue = leftRecord.getValue(this.leftColumnIndex);

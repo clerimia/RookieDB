@@ -22,11 +22,11 @@ class IndexScanOperator extends QueryOperator {
     private int columnIndex;
 
     /**
-     * An index scan operator.
+     * 索引扫描操作符。
      *
-     * @param transaction the transaction containing this operator
-     * @param tableName the table to iterate over
-     * @param columnName the name of the column the index is on
+     * @param transaction 包含此操作符的事务
+     * @param tableName 要迭代的表
+     * @param columnName 索引所在列的名称
      */
     IndexScanOperator(TransactionContext transaction,
                       String tableName,
@@ -51,15 +51,15 @@ class IndexScanOperator extends QueryOperator {
 
     @Override
     public String str() {
-        return String.format("Index Scan for %s%s%s on %s (cost=%d)",
+        return String.format("索引扫描 %s%s%s 在表 %s 上 (成本=%d)",
             this.columnName, this.predicate.toSymbol(), this.value, this.tableName,
             this.estimateIOCost());
     }
 
     /**
-     * Returns the column name that the index scan is on
+     * 返回索引扫描所在的列名
      *
-     * @return columnName
+     * @return 列名
      */
     public String getColumnName() {
         return this.columnName;
@@ -81,8 +81,7 @@ class IndexScanOperator extends QueryOperator {
 
         int count = tableStats.getHistograms().get(columnIndex).copyWithPredicate(predicate,
                     value).getCount();
-        // 2 * order entries/leaf node, but leaf nodes are 50-100% full; we use a fill factor of
-        // 75% as a rough estimate
+        // 2 * order 个条目/叶节点，但叶节点填充度为50-100%；我们使用75%的填充因子作为粗略估计
         return (int) (height + Math.ceil(count / (1.5 * order)) + count);
     }
 
@@ -102,7 +101,7 @@ class IndexScanOperator extends QueryOperator {
     }
 
     /**
-     * An implementation of Iterator that provides an iterator interface for this operator.
+     * 为该操作符提供迭代器接口的Iterator实现。
      */
     private class IndexScanIterator implements Iterator<Record> {
         private Iterator<Record> sourceIterator;
@@ -143,8 +142,7 @@ class IndexScanOperator extends QueryOperator {
         }
 
         /**
-         * @return true if this iterator has another record to yield, otherwise
-         * false
+         * @return 如果此迭代器还有下一个记录要返回，则返回true，否则返回false
          */
         @Override
         public boolean hasNext() {
@@ -166,8 +164,8 @@ class IndexScanOperator extends QueryOperator {
         }
 
         /**
-         * @return the next record from this iterator
-         * @throws NoSuchElementException if there are no more records to yield
+         * @return 此迭代器的下一个记录
+         * @throws NoSuchElementException 如果没有更多记录可返回
          */
         @Override
         public Record next() {

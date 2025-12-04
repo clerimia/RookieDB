@@ -9,15 +9,14 @@ import edu.berkeley.cs186.database.table.Schema;
 import java.util.List;
 
 /**
- * A run represents a section of space on disk that we can append records to or
- * read from. This is useful for external sorting to store records while we
- * aren't using them and free up memory. Automatically buffers reads and writes
- * to minimize I/Os incurred.
+ * Run表示磁盘上的一段空间，我们可以向其中追加记录或从中读取记录。
+ * 这对于外部排序非常有用，可以在不使用记录时将其存储起来以释放内存。
+ * 自动缓冲读写操作以最小化产生的I/O操作。
  */
 public class Run implements Iterable<Record> {
-    // The transaction this run will be used within
+    // 此run将用于其中的事务
     private TransactionContext transaction;
-    // Under the hood we'll be storing all the records in a temporary table
+    // 在底层，我们将所有记录存储在一个临时表中
     private String tempTableName;
     private Schema schema;
 
@@ -27,8 +26,8 @@ public class Run implements Iterable<Record> {
     }
 
     /**
-     * Adds a record to this run.
-     * @param record the record to add
+     * 向此run中添加一条记录。
+     * @param record 要添加的记录
      */
     public void add(Record record) {
         if (this.tempTableName == null) {
@@ -38,15 +37,15 @@ public class Run implements Iterable<Record> {
     }
 
     /**
-     * Adds a list of records to this run.
-     * @param records the records to add
+     * 向此run中添加一组记录。
+     * @param records 要添加的记录列表
      */
     public void addAll(List<Record> records) {
         for (Record record: records) this.add(record);
     }
 
     /**
-     * @return an iterator over the records in this run
+     * @return 返回此run中记录的迭代器
      */
     public BacktrackingIterator<Record> iterator() {
         if (this.tempTableName == null) return new EmptyBacktrackingIterator<>();
@@ -54,7 +53,7 @@ public class Run implements Iterable<Record> {
     }
 
     /**
-     * @return the name of the table containing this run's records
+     * @return 返回包含此run记录的表名
      */
     public String getTableName() {
         return this.tempTableName;

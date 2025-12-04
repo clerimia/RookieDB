@@ -13,14 +13,12 @@ public class SequentialScanOperator extends QueryOperator {
     private String tableName;
 
     /**
-     * Creates a new SequentialScanOperator that provides an iterator on all
-     * tuples in a table.
+     * 创建一个新的SequentialScanOperator，提供表中所有元组的迭代器。
      *
-     * NOTE: Sequential scans don't take a source operator because they must
-     * always be at the bottom of the DAG.
+     * 注意：顺序扫描不接收源操作符，因为它们必须始终位于DAG的底部。
      *
-     * @param transaction
-     * @param tableName
+     * @param transaction 事务上下文
+     * @param tableName 表名
      */
     public SequentialScanOperator(TransactionContext transaction,
                            String tableName) {

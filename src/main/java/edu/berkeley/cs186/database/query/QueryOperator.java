@@ -34,8 +34,8 @@ public abstract class QueryOperator implements Iterable<Record> {
     private OperatorType type;
 
     /**
-     * Creates a QueryOperator without a set source, destination, or schema.
-     * @param type the operator's type (Join, Project, Select, etc...)
+     * 创建一个没有设置源、目标或模式的QueryOperator。
+     * @param type 操作符的类型（连接、投影、选择等）
      */
     public QueryOperator(OperatorType type) {
         this.type = type;
@@ -44,10 +44,9 @@ public abstract class QueryOperator implements Iterable<Record> {
     }
 
     /**
-     * Creates a QueryOperator with a set source, and computes the output schema
-     * accordingly.
-     * @param type the operator's type (Join, Project, Select, etc...)
-     * @param source the source operator
+     * 创建一个设置了源的QueryOperator，并相应地计算输出模式。
+     * @param type 操作符的类型（连接、投影、选择等）
+     * @param source 源操作符
      */
     protected QueryOperator(OperatorType type, QueryOperator source) {
         this.source = source;
@@ -56,50 +55,49 @@ public abstract class QueryOperator implements Iterable<Record> {
     }
 
     /**
-     * @return an enum value representing the type of this operator (Join,
-     * Project, Select, etc...)
+     * @return 表示此操作符类型的枚举值（连接、投影、选择等）
      */
     public OperatorType getType() {
         return this.type;
     }
 
     /**
-     * @return True if this operator is a join operator, false otherwise.
+     * @return 如果此操作符是连接操作符则返回true，否则返回false。
      */
     public boolean isJoin() {
         return this.type.equals(OperatorType.JOIN);
     }
 
     /**
-     * @return True if this operator is a select operator, false otherwise.
+     * @return 如果此操作符是选择操作符则返回true，否则返回false。
      */
     public boolean isSelect() {
         return this.type.equals(OperatorType.SELECT);
     }
 
     /**
-     * @return True if this operator is a project operator, false otherwise.
+     * @return 如果此操作符是投影操作符则返回true，否则返回false。
      */
     public boolean isProject() {
         return this.type.equals(OperatorType.PROJECT);
     }
 
     /**
-     * @return True if this operator is a group by operator, false otherwise.
+     * @return 如果此操作符是分组操作符则返回true，否则返回false。
      */
     public boolean isGroupBy() {
         return this.type.equals(OperatorType.GROUP_BY);
     }
 
     /**
-     * @return True if this operator is a sequential scan operator, false otherwise.
+     * @return 如果此操作符是顺序扫描操作符则返回true，否则返回false。
      */
     public boolean isSequentialScan() {
         return this.type.equals(OperatorType.SEQ_SCAN);
     }
 
     /**
-     * @return True if this operator is an index scan operator, false otherwise.
+     * @return 如果此操作符是索引扫描操作符则返回true，否则返回false。
      */
     public boolean isIndexScan() {
         return this.type.equals(OperatorType.INDEX_SCAN);
@@ -110,14 +108,14 @@ public abstract class QueryOperator implements Iterable<Record> {
     }
 
     /**
-     * @return the source operator from which this operator draws records from
+     * @return 此操作符从中获取记录的源操作符
      */
     public QueryOperator getSource() {
         return this.source;
     }
 
     /**
-     * Sets the source of this operator and uses it to compute the output schema
+     * 设置此操作符的源并使用它来计算输出模式
      */
     protected void setSource(QueryOperator source) {
         this.source = source;
@@ -125,78 +123,77 @@ public abstract class QueryOperator implements Iterable<Record> {
     }
 
     /**
-     * @return the schema of the records obtained when executing this operator
+     * @return 执行此操作符时获得的记录的模式
      */
     public Schema getSchema() {
         return this.outputSchema;
     }
 
     /**
-     * Sets the output schema of this operator. This should match the schema of the records of the iterator obtained
-     * by calling execute().
+     * 设置此操作符的输出模式。这应该与调用execute()获得的迭代器的记录模式匹配。
      */
     protected void setOutputSchema(Schema schema) {
         this.outputSchema = schema;
     }
 
     /**
-     * Computes the schema of this operator's output records.
-     * @return a schema matching the schema of the records of the iterator
-     * obtained by calling .iterator()
+     * 计算此操作符输出记录的模式。
+     * @return 与调用.iterator()获得的迭代器记录模式匹配的模式
      */
     protected abstract Schema computeSchema();
 
     /**
-     * @return an iterator over the output records of this operator
+     * @return 此操作符输出记录的迭代器
      */
     public abstract Iterator<Record> iterator();
 
     /**
-     * @return true if the records of this query operator are materialized in a
-     * table.
+     * @return 如果此查询操作符的记录物化在表中则返回true。
      */
     public boolean materialized() {
         return false;
     }
 
     /**
-     * @throws UnsupportedOperationException if this operator doesn't support
-     * backtracking
-     * @return A backtracking iterator over the records of this operator
+     * @throws UnsupportedOperationException 如果此操作符不支持回溯
+     * @return 此操作符记录的回溯迭代器
      */
     public BacktrackingIterator<Record> backtrackingIterator() {
         throw new UnsupportedOperationException(
-            "This operator doesn't support backtracking. You may want to " +
-            "use QueryOperator.materialize on it first."
+            "此操作符不支持回溯。您可能想要先使用QueryOperator.materialize。"
         );
     }
 
     /**
-     * @param records an iterator of records
-     * @param schema the schema of the records yielded from `records`
-     * @param maxPages the maximum number of pages worth of records to consume
-     * @return This method will consume up to `maxPages` pages of records from
-     * `records` (advancing it in the process) and return a backtracking
-     * iterator over those records. Setting maxPages to 1 will result in an
-     * iterator over a single page of records.
+     * @param records 输入的记录迭代器（数据源）
+     * @param schema  记录的模式
+     * @param maxPages 要消耗的记录的最大页数
+     * @return 此方法将从`records`中消耗最多`maxPages`页的记录（在此过程中推进它），
+     * 并返回这些记录的回溯迭代器。将maxPages设置为1将导致单页记录的迭代器。
      */
     public static BacktrackingIterator<Record> getBlockIterator(Iterator<Record> records, Schema schema, int maxPages) {
+        // 计算容量, 计算每页能容纳的记录数，然后计算总记录数
         int recordsPerPage = Table.computeNumRecordsPerPage(PageDirectory.EFFECTIVE_PAGE_SIZE, schema);
         int maxRecords = recordsPerPage * maxPages;
+
+        // 提取记录，会移动迭代器指针
         List<Record> blockRecords = new ArrayList<>();
         for (int i = 0; i < maxRecords && records.hasNext(); i++) {
             blockRecords.add(records.next());
         }
+
+        // 返回回溯的迭代器
         return new ArrayBacktrackingIterator<>(blockRecords);
     }
 
     /**
-     * @param operator a query operator to materialize
-     * @param transaction the transaction the materialized table will be created
-     *                    within
-     * @return A new MaterializedOperator that draws from the records of `operator`
+     * @param operator 要物化的查询操作符
+     * @param transaction 物化表将在其中创建的事务
+     * @return 从`operator`记录中提取的新MaterializedOperator
      */
     public static QueryOperator materialize(QueryOperator operator, TransactionContext transaction) {
+        // 检查是否已经物化
+        // 1.没有物化就为当前事务创建一个新的物化算子
         if (!operator.materialized()) {
             return new MaterializeOperator(operator, transaction);
         }
@@ -214,16 +211,16 @@ public abstract class QueryOperator implements Iterable<Record> {
     }
 
     /**
-     * Estimates the table statistics for the result of executing this query operator.
+     * 估计执行此查询操作符的结果的表统计信息。
      *
-     * @return estimated TableStats
+     * @return 估计的TableStats
      */
     public abstract TableStats estimateStats();
 
     /**
-     * Estimates the IO cost of executing this query operator.
+     * 估计执行此查询操作符的IO成本。
      *
-     * @return estimated number of IO's performed
+     * @return 估计的IO操作次数
      */
     public abstract int estimateIOCost();
 

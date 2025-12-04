@@ -12,20 +12,17 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Every table in a database maintains a set of table statistics which are
- * updated whenever a tuple is added or deleted to it. These table statistics
- * consist of an estimated number of records in the table, an estimated number
- * of pages used by the table, and a histogram on every column of the table.
- * For example, we can construct a TableStats and add/remove records from
- * it like this:
+ * 数据库中的每个表都维护一组表统计信息，每当向表中添加或删除元组时都会更新这些统计信息。
+ * 这些表统计信息包括表中记录的估计数量、表使用的估计页数以及表每列的直方图。
+ * 例如，我们可以构造一个TableStats对象并从中添加/删除记录，如下所示：
  *
- *   // Create a TableStats object for a table with columns (x: int, y: float).
+ *   // 为具有列(x: int, y: float)的表创建TableStats对象
  *   List<String> fieldNames = Arrays.asList("x", "y");
  *   List<Type> fieldTypes = Arrays.asList(Type.intType(), Type.floatType());
  *   Schema schema = new Schema(fieldNames, fieldTypes);
  *   TableStats stats = new TableStats(schema);
  *
- *   // Add and remove tuples from the stats.
+ *   // 从统计信息中添加和删除元组
  *   IntDataBox x1 = new IntDataBox(1);
  *   FloatDataBox y1 = new FloatDataBox(1);
  *   Record r1 = new Record(schema, Arrays.asList(x1, y1));
@@ -38,12 +35,11 @@ import java.util.List;
  *   stats.addRecord(r2);
  *   stats.removeRecord(r1);
  *
- * Later, we can use the statistics maintained by a TableStats object for
- * things like query optimization:
+ * 后来，我们可以使用TableStats对象维护的统计信息进行查询优化等操作：
  *
- *   stats.getNumRecords(); // Estimated number of records.
- *   stats.getNumPages();   // Estimated number of pages.
- *   stats.getHistograms(); // Histograms on each column.
+ *   stats.getNumRecords(); // 记录的估计数量
+ *   stats.getNumPages();   // 页面的估计数量
+ *   stats.getHistograms(); // 每列的直方图
  */
 public class TableStats {
     private Schema schema;
@@ -51,7 +47,7 @@ public class TableStats {
     private int numRecords;
     private List<Histogram> histograms;
 
-    /** Construct a TableStats for an empty table with schema `schema`. */
+    /** 为具有模式'schema'的空表构造TableStats */
     public TableStats(Schema schema, int numRecordsPerPage) {
         this.schema = schema;
         this.numRecordsPerPage = numRecordsPerPage;
@@ -71,7 +67,7 @@ public class TableStats {
         this.histograms = histograms;
     }
 
-    // Modifiers /////////////////////////////////////////////////////////////////
+    // 修改器 /////////////////////////////////////////////////////////////////
     public void addRecord(Record record) {
         numRecords++;
     }
@@ -93,7 +89,7 @@ public class TableStats {
         this.numRecords = Math.round(((float) totalRecords) / schema.size());
     }
 
-    // Accessors /////////////////////////////////////////////////////////////////
+    // 访问器 /////////////////////////////////////////////////////////////////
     public Schema getSchema() { return schema; }
 
     public int getNumRecords() {
@@ -101,8 +97,8 @@ public class TableStats {
     }
 
     /**
-     * Calculates the number of data pages required to store `numRecords` records
-     * assuming that all records are stored as densely as possible in the pages.
+     * 计算存储'numRecords'条记录所需的數據頁面數量
+     * 假设所有记录都尽可能密集地存储在页面中
      */
     public int getNumPages() {
         if (numRecords % numRecordsPerPage == 0) return numRecords / numRecordsPerPage;
@@ -113,16 +109,16 @@ public class TableStats {
         return histograms;
     }
 
-    // Copiers ///////////////////////////////////////////////////////////////////
+    // 复制器 ///////////////////////////////////////////////////////////////////
     /**
-     * Estimates the table statistics for the table that would be produced after
-     * filtering column `i` with `predicate` and `value`. For simplicity, we
-     * assume that columns are completeley uncorrelated. For example, imagine the
-     * following table statistics for a table T(x:int, y:int).
+     * 估计应用过滤条件后产生的表的统计信息
+     * 过滤条件为第'i'列使用'predicate'和'value'进行过滤
+     * 为了简化，我们假设各列之间完全不相关
+     * 例如，想象一个表T(x:int, y:int)具有以下表统计信息：
      *
      *   numRecords = 100
      *   numPages = 2
-     *               Histogram x                         Histogram y
+     *               直方图 x                          直方图 y
      *               ===========                         ===========
      *   60 |                       50       60 |
      *   50 |        40           +----+     50 |
@@ -135,12 +131,11 @@ public class TableStats {
      *        0    1    2    3    4    5          0    1    2    3    4    5
      *              0    0    0    0    0               0    0    0    0    0
      *
-     * If we apply the filter `x < 20`, we estimate that we would have the
-     * following table statistics.
+     * 如果我们应用过滤条件'x < 20'，我们估计将得到以下表统计信息：
      *
      *   numRecords = 50
      *   numPages = 1
-     *               Histogram x                         Histogram y
+     *               直方图 x                          直方图 y
      *               ===========                         ===========
      *   50 |        40                      50 |
      *   40 |      +----+                    40 |
@@ -160,10 +155,10 @@ public class TableStats {
         for (int j = 0; j < histograms.size(); j++) {
             Histogram histogram = histograms.get(j);
             if (column == j) {
-                // For the target column, apply the predicate directly
+                // 对于目标列，直接应用谓词
                 copyHistograms.add(histogram.copyWithPredicate(predicate, d));
             } else {
-                // For other columns, reduce by the reduction factor
+                // 对于其他列，按缩减因子减少
                 copyHistograms.add(histogram.copyWithReduction(reductionFactor));
             }
         }
@@ -172,18 +167,17 @@ public class TableStats {
     }
 
     /**
-     * Creates a new TableStats which is the statistics for the table
-     * that results from this TableStats joined with the given TableStats.
+     * 创建一个新的TableStats，表示此TableStats与给定TableStats连接后产生的表的统计信息
      *
-     * @param leftIndex the index of the join column for this
-     * @param rightStats the TableStats of the right table to be joined
-     * @param rightIndex the index of the join column for the right table
-     * @return new TableStats based off of this and params
+     * @param leftIndex 此表连接列的索引
+     * @param rightStats 要连接的右表的TableStats
+     * @param rightIndex 右表连接列的索引
+     * @return 基于此对象和参数的新TableStats
      */
     public TableStats copyWithJoin(int leftIndex,
                                    TableStats rightStats,
                                    int rightIndex) {
-        // Compute the new schema.
+        // 计算新的模式
         Schema joinedSchema = this.schema.concat(rightStats.schema);
         int inputSize = this.numRecords * rightStats.numRecords;
         int leftNumDistinct = 1;

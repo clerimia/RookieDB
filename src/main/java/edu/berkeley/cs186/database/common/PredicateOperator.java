@@ -1,11 +1,10 @@
 package edu.berkeley.cs186.database.common;
 
 /**
- * Predicate operators represent the possible comparison's we allow in
- * our database implementation. For example, in a WHERE clause we may
- * specificy WHERE table.value >= 186. To express this we would use
- * PredicateOperator.GREATER_THAN_EQUALS. This is useful in QueryPlan.select()
- * when we're trying to add constraints to the WHERE clause of our query.
+ * 谓词运算符表示我们在数据库实现中允许的所有比较操作。
+ * 例如，在WHERE子句中我们可能会指定WHERE table.value >= 186。
+ * 为了表达这一点，我们会使用PredicateOperator.GREATER_THAN_EQUALS。
+ * 这在QueryPlan.select()中很有用，当我们试图向查询的WHERE子句添加约束时。
  */
 public enum PredicateOperator {
     EQUALS,
@@ -16,11 +15,10 @@ public enum PredicateOperator {
     GREATER_THAN_EQUALS;
 
     /**
-     * @param a The left argument to be evaluated
-     * @param b The right argument to be evaluated
-     * @param <T> Any type that implements comparable
-     * @return The result of evaluating this predicate operator on the left and
-     * right arguments.
+     * @param a 需要评估的左参数
+     * @param b 需要评估的右参数
+     * @param <T> 实现了Comparable接口的任意类型
+     * @return 对左右参数应用此谓词运算符后的评估结果
      */
     public <T extends Comparable<T>> boolean evaluate(T a, T b) {
         switch (this) {
@@ -41,8 +39,8 @@ public enum PredicateOperator {
     }
 
     /**
-     * @param s A string representing a predicate operator, for example >= or !=
-     * @return An instance of the corresponding PredicateOperator
+     * @param s 表示谓词运算符的字符串，例如 >= 或 !=
+     * @return 对应的PredicateOperator实例
      */
     public static PredicateOperator fromSymbol(String s) {
         switch(s) {
@@ -55,11 +53,11 @@ public enum PredicateOperator {
             case ">": return GREATER_THAN;
             case ">=": return GREATER_THAN_EQUALS;
         }
-        throw new IllegalArgumentException("Invalid predicate symbol:  + s");
+        throw new IllegalArgumentException("无效的谓词符号: " + s);
     }
 
     /**
-     * @return a symbolic representation of this operator.
+     * @return 此运算符的符号表示
      */
     public String toSymbol() {
         switch(this) {
@@ -70,18 +68,13 @@ public enum PredicateOperator {
             case GREATER_THAN: return ">";
             case GREATER_THAN_EQUALS: return ">=";
         }
-        throw new IllegalStateException("Unreachable code.");
+        throw new IllegalStateException("无法到达的代码。");
     }
 
     /**
-     * @param
-     */
-
-    /**
-     * @return A corresponding operator to use if the left and right values
-     * this operator was comparing were reversed. Does nothing for NOT_EQUALS
-     * and EQUALS, and flips GREATER THAN with LESS THAN or vice versa for
-     * the remaining cases.
+     * @return 如果将此运算符比较的左右值互换，则应使用的对应运算符。
+     * 对NOT_EQUALS和EQUALS不执行任何操作，
+     * 对其余情况则将GREATER THAN与LESS THAN相互翻转。
      */
     public PredicateOperator reverse() {
         switch(this) {

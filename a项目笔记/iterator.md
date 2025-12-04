@@ -83,7 +83,21 @@ public IndexBacktrackingIterator(int maxIndex) {
 - 内部数组
 
 ### 合并迭代器
-估计是用于SortMerge产生的结果，会产生一个回溯迭代器
+估计是用于Union 操作的  
+```java
+// 多个叶子节点，每个节点是一个可迭代对象
+// LeafNode node1 = new LeafNode([record1, record2, record3]);  // 可迭代对象1
+// LeafNode node2 = new LeafNode([record4, record5]);           // 可迭代对象2
+// LeafNode node3 = new LeafNode([record6, record7, record8]);  // 可迭代对象3
+
+// outerIterator 产生这些叶子节点（可迭代对象）
+BacktrackingIterator<LeafNode> nodeIterator = getNodeIterator();
+
+// ConcatBacktrackingIterator 将所有节点中的记录连接起来
+ConcatBacktrackingIterator<Record> recordIterator = new ConcatBacktrackingIterator<>(nodeIterator);
+
+// 最终效果：[record1, record2, record3, record4, record5, record6, record7, record8]
+```
 
 
 ### 空迭代器
