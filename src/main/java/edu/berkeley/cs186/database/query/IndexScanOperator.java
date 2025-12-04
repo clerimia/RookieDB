@@ -146,9 +146,11 @@ class IndexScanOperator extends QueryOperator {
          */
         @Override
         public boolean hasNext() {
-            if (this.nextRecord != null) return true;
-            if (!this.sourceIterator.hasNext()) return false;
-            Record r = this.sourceIterator.next();
+            if (this.nextRecord != null) return true;  // 如果已有缓存记录，直接返回true
+            if (!this.sourceIterator.hasNext()) return false;  // 如果底层迭代器没有更多记录，返回false
+            Record r = this.sourceIterator.next();     // 获取下一条记录
+
+            // 根据谓词类型判断记录是否符合条件
             if (predicate == PredicateOperator.LESS_THAN) {
                 if (r.getValue(columnIndex).compareTo(value) < 0) {
                     this.nextRecord = r;
@@ -158,7 +160,7 @@ class IndexScanOperator extends QueryOperator {
                     this.nextRecord = r;
                 }
             } else  {
-                this.nextRecord = r;
+                this.nextRecord = r;  // 对于GREATER_THAN等其他情况，构造函数已处理过滤
             }
             return this.nextRecord != null;
         }
@@ -171,7 +173,7 @@ class IndexScanOperator extends QueryOperator {
         public Record next() {
             if (this.hasNext()) {
                 Record r = this.nextRecord;
-                this.nextRecord = null;
+                this.nextRecord = null;  // 清空缓存
                 return r;
             }
             throw new NoSuchElementException();

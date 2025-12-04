@@ -38,7 +38,7 @@ class SelectStatementVisitor extends StatementVisitor {
 
     @Override
     public void execute(Transaction transaction, PrintStream out) {
-        QueryPlan query = getQueryPlan(transaction).get();
+        QueryPlan query = getQueryPlan(transaction).get(); // 获取查询计划
         Iterator<Record> records = query.execute();
         new PrettyPrinter(out).printRecords(selectColumns, records);
     }

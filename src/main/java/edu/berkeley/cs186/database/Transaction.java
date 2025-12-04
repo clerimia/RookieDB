@@ -12,20 +12,20 @@ import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
 /**
- * The public-facing interface of a transaction.
+ * 事务的公共接口。
  */
 public abstract class Transaction implements AutoCloseable {
-    // Status //////////////////////////////////////////////////////////////////
+    // 状态 //////////////////////////////////////////////////////////////////
     public enum Status {
         RUNNING,
         COMMITTING,
         ABORTING,
         COMPLETE,
-        RECOVERY_ABORTING; // "ABORTING" state for txns during restart recovery
+        RECOVERY_ABORTING; // 重启恢复期间事务的"ABORTING"状态
 
         public static Status fromInt(int x) {
             if (x < 0 || x >= values().length) {
-                String err = String.format("Unknown TypeId ordinal %d.", x);
+                String err = String.format("未知的TypeId序号 %d。", x);
                 throw new IllegalArgumentException(err);
             }
             return values()[x];
@@ -35,74 +35,72 @@ public abstract class Transaction implements AutoCloseable {
     private Status status = Status.RUNNING;
 
     /**
-     * Executes a statement (e.g. SELECT, UPDATE, INSERT, etc...)
+     * 执行一条语句（例如SELECT, UPDATE, INSERT等）
      */
     public abstract Optional<QueryPlan> execute(String statement);
 
     /**
-     * @return transaction number
+     * @return 事务编号
      */
     public abstract long getTransNum();
 
     /**
-     * @return current status of transaction
+     * @return 事务的当前状态
      */
     public final Status getStatus() {
         return status;
     }
 
     /**
-     * Sets status of transaction. Should not be used directly by
-     * users of the transaction (this should be called by the recovery
-     * manager).
-     * @param status new status of transaction
+     * 设置事务状态。不应由事务使用者直接调用
+     *（此方法应由恢复管理器调用）。
+     * @param status 事务的新状态
      */
     public void setStatus(Status status) {
         this.status = status;
     }
 
     /**
-     * Commits a transaction. Equivalent to
+     * 提交事务。等同于
      *      COMMIT
      *
-     * This is the default way a transaction ends.
+     * 这是事务结束的默认方式。
      */
     public final void commit() {
         if (status != Status.RUNNING) {
-            throw new IllegalStateException("transaction not in running state, cannot commit");
+            throw new IllegalStateException("事务不处于运行状态，无法提交");
         }
         startCommit();
     }
 
     /**
-     * Rolls back a transaction. Equivalent to
+     * 回滚事务。等同于
      *      ROLLBACK
      *
-     * Project 5 (Recovery) must be fully implemented.
+     * 需要完全实现项目5（恢复）。
      */
     public final void rollback() {
         if (status != Status.RUNNING) {
-            throw new IllegalStateException("transaction not in running state, cannot rollback");
+            throw new IllegalStateException("事务不处于运行状态，无法回滚");
         }
         startRollback();
     }
 
     /**
-     * Cleanup transaction (when transaction ends). Does not
-     * need to be called directly, as commit/rollback should
-     * call cleanup themselves. Does not do anything on successive calls
-     * when called multiple times.
+     * 清理事务（当事务结束时）。不需要直接调用，
+     * 因为commit/rollback应该自己调用cleanup。
+     * 多次调用时不会执行任何操作。
      */
     public abstract void cleanup();
 
     /**
-     * Implements close() as commit() when abort/commit not called - so that we can write:
+     * 实现close()作为commit()当未调用abort/commit时 - 以便我们可以编写：
      *
      * try (Transaction t = ...) {
      * ...
      * }
      *
-     * and have the transaction commit.
+     * 并让事务提交。
      */
     @Override
     public final void close() {
@@ -114,217 +112,213 @@ public abstract class Transaction implements AutoCloseable {
     // DDL /////////////////////////////////////////////////////////////////////
 
     /**
-     * Creates a table. Equivalent to
+     * 创建表。等同于
      *      CREATE TABLE tableName (...s)
      *
-     * Indices must be created afterwards with createIndex.
+     * 索引必须在之后使用createIndex创建。
      *
-     * @param s schema of new table
-     * @param tableName name of new table
+     * @param s 新表的模式
+     * @param tableName 新表的名称
      */
     public abstract void createTable(Schema s, String tableName);
 
     /**
-     * Drops a table. Equivalent to
+     * 删除表。等同于
      *      DROP TABLE tableName
      *
-     * @param tableName name of table to drop
+     * @param tableName 要删除的表名
      */
     public abstract void dropTable(String tableName);
 
     /**
-     * Drops all normal tables.
+     * 删除所有普通表。
      */
     public abstract void dropAllTables();
 
     /**
-     * Creates an index. Equivalent to
+     * 创建索引。等同于
      *      CREATE INDEX tableName_columnName ON tableName (columnName)
-     * in postgres.
+     * 在postgres中。
      *
-     * The only index supported is a B+ tree. Indices require Project 2 (B+ trees) to
-     * be fully implemented. Bulk loading requires Project 3 Part 1 (Joins/Sorting) to be
-     * fully implemented as well.
+     * 唯一支持的索引是B+树。索引需要完全实现项目2（B+树）。
+     * 批量加载还需要完全实现项目3第1部分（连接/排序）。
      *
-     * @param tableName name of table to create index for
-     * @param columnName name of column to create index on
-     * @param bulkLoad whether to bulk load data
+     * @param tableName 要为其创建索引的表名
+     * @param columnName 要在其上创建索引的列名
+     * @param bulkLoad 是否批量加载数据
      */
     public abstract void createIndex(String tableName, String columnName, boolean bulkLoad);
 
     /**
-     * Drops an index. Equivalent to
+     * 删除索引。等同于
      *      DROP INDEX tableName_columnName
-     * in postgres.
+     * 在postgres中。
      *
-     * @param tableName name of table to drop index from
-     * @param columnName name of column to drop index from
+     * @param tableName 要从中删除索引的表名
+     * @param columnName 要从中删除索引的列名
      */
     public abstract void dropIndex(String tableName, String columnName);
 
     // DML /////////////////////////////////////////////////////////////////////
 
     /**
-     * Returns a QueryPlan selecting from tableName. Equivalent to
+     * 返回从tableName选择的QueryPlan。等同于
      *      SELECT * FROM tableName
-     * and used for all SELECT queries.
-     * @param tableName name of table to select from
-     * @return new query plan
+     * 用于所有SELECT查询。
+     * @param tableName 要从中选择的表名
+     * @return 新的查询计划
      */
     public abstract QueryPlan query(String tableName);
 
     /**
-     * Returns a QueryPlan selecting from tableName. Equivalent to
+     * 返回从tableName选择的QueryPlan。等同于
      *      SELECT * FROM tableName AS alias
-     * and used for all SELECT queries.
-     * @param tableName name of table to select from
-     * @param alias alias of tableName
-     * @return new query plan
+     * 用于所有SELECT查询。
+     * @param tableName 要从中选择的表名
+     * @param alias tableName的别名
+     * @return 新的查询计划
      */
     public abstract QueryPlan query(String tableName, String alias);
 
     /**
-     * Inserts a row into a table. Equivalent to
+     * 向表中插入一行。等同于
      *      INSERT INTO tableName VALUES(...values)`
      *
-     * @param tableName name of table to insert into
-     * @param values the values to be inserted. Can either be a sequence of
-     *               types supported by the database or a
+     * @param tableName 要插入的表名
+     * @param values 要插入的值。可以是数据库支持的类型序列或
      */
     public void insert(String tableName, Object... values) {
         insert(tableName, new Record(values));
     }
 
     /**
-     * Inserts a row into a table. Equivalent to
+     * 向表中插入一行。等同于
      *      INSERT INTO tableName VALUES(...values)
-     * Using the values in `record`
+     * 使用`record`中的值
      *
-     * @param tableName name of table to insert into
-     * @param record a record containing the values to be inserted
+     * @param tableName 要插入的表名
+     * @param record 包含要插入值的记录
      */
     public abstract void insert(String tableName, Record record);
 
     /**
-     * Updates rows in a table. Equivalent to
+     * 更新表中的行。等同于
      *      UPDATE tableName SET targetColumnName = targetValue(targetColumnName)
      *
-     * @param tableName name of table to update
-     * @param targetColumnName column to update
-     * @param targetValue function mapping old values to new values
+     * @param tableName 要更新的表名
+     * @param targetColumnName 要更新的列
+     * @param targetValue 将旧值映射到新值的函数
      */
     public abstract void update(String tableName, String targetColumnName, UnaryOperator<DataBox> targetValue);
 
     /**
-     * Updates rows in a table. Equivalent to
+     * 更新表中的行。等同于
      *      UPDATE tableName SET targetColumnName = targetValue(targetColumnName)
      *       WHERE predColumnName predOperator predValue
      *
-     * @param tableName name of table to update
-     * @param targetColumnName column to update
-     * @param targetValue function mapping old values to new values
-     * @param predColumnName column used in WHERE predicate
-     * @param predOperator operator used in WHERE predicate
-     * @param predValue value used in WHERE predicate
+     * @param tableName 要更新的表名
+     * @param targetColumnName 要更新的列
+     * @param targetValue 将旧值映射到新值的函数
+     * @param predColumnName WHERE条件中使用的列
+     * @param predOperator WHERE条件中使用的运算符
+     * @param predValue WHERE条件中使用的值
      */
     public abstract void update(String tableName, String targetColumnName, UnaryOperator<DataBox> targetValue,
                                 String predColumnName, PredicateOperator predOperator, DataBox predValue);
 
     /**
-     * @param tableName name of table to update
-     * @param targetColumnName column to update
-     * @param expr expression that evaluates to the new updated values
+     * @param tableName 要更新的表名
+     * @param targetColumnName 要更新的列
+     * @param expr 计算新更新值的表达式
      */
     public void update(String tableName, String targetColumnName, Function<Record, DataBox> expr) {
         update(tableName, targetColumnName, expr, (r) -> new BoolDataBox(true));
     };
 
     /**
-     * @param tableName name of table to update
-     * @param targetColumnName column to update
-     * @param expr expression that evaluates to the new updated values
-     * @param cond expression that is evaluated to determine if a given record
-     *             should be updated.
+     * @param tableName 要更新的表名
+     * @param targetColumnName 要更新的列
+     * @param expr 计算新更新值的表达式
+     * @param cond 根据记录的值评估是否应更新给定记录的表达式
      */
     public abstract void update(String tableName, String targetColumnName, Function<Record, DataBox> expr, Function<Record, DataBox> cond);
 
     /**
-     * Deletes rows from a table. Equivalent to
+     * 从表中删除行。等同于
      *      DELETE FROM tableNAME WHERE predColumnName predOperator predValue
      *
-     * @param tableName name of table to delete from
-     * @param predColumnName column used in WHERE predicate
-     * @param predOperator operator used in WHERE predicate
-     * @param predValue value used in WHERE predicate
+     * @param tableName 要从中删除的表名
+     * @param predColumnName WHERE条件中使用的列
+     * @param predOperator WHERE条件中使用的运算符
+     * @param predValue WHERE条件中使用的值
      */
     public abstract void delete(String tableName, String predColumnName, PredicateOperator predOperator,
                 DataBox predValue);
 
     /**
-     * @param tableName name of table to delete from
-     * @param cond expression that is evaluated to determine if a given record
-     *             should be deleted based on its values
+     * @param tableName 要从中删除的表名
+     * @param cond 根据其值评估是否应删除给定记录的表达式
      */
     public abstract void delete(String tableName, Function<Record, DataBox> cond);
 
-    // Savepoints //////////////////////////////////////////////////////////////
+    // 保存点 //////////////////////////////////////////////////////////////
 
     /**
-     * Creates a savepoint. A transaction may roll back to a savepoint it created
-     * at any point before committing/aborting. Equivalent to
+     * 创建保存点。事务可以在提交/中止之前的任何时候回滚到它创建的保存点。
+     * 等同于
      *      SAVEPOINT savepointName
      *
-     * Savepoints require Project 5 (recovery) to be fully implemented.
+     * 保存点需要完全实现项目5（恢复）。
      *
-     * @param savepointName name of savepoint
+     * @param savepointName 保存点名称
      */
     public abstract void savepoint(String savepointName);
 
     /**
-     * Rolls back all changes made by the transaction since the given savepoint.
-     * Equivalent to
+     * 回滚自给定保存点以来事务所做的所有更改。
+     * 等同于
      *      ROLLBACK TO savepointName
      *
-     * Savepoints require Project 5 (recovery) to be fully implemented.
+     * 保存点需要完全实现项目5（恢复）。
      *
-     * @param savepointName name of savepoint
+     * @param savepointName 保存点名称
      */
     public abstract void rollbackToSavepoint(String savepointName);
 
     /**
-     * Deletes a savepoint. Equivalent to
+     * 删除保存点。等同于
      *      RELEASE SAVEPOINT
      *
-     * Savepoints require Project 5 (recovery) to be fully implemented.
+     * 保存点需要完全实现项目5（恢复）。
      *
-     * @param savepointName name of savepoint
+     * @param savepointName 保存点名称
      */
     public abstract void releaseSavepoint(String savepointName);
 
-    // Schema //////////////////////////////////////////////////////////////////
+    // 模式 //////////////////////////////////////////////////////////////////
 
     /**
-     * @param tableName name of table to get schema of
-     * @return schema of table
+     * @param tableName 要获取模式的表名
+     * @return 表的模式
      */
     public abstract Schema getSchema(String tableName);
 
-    // Internal ////////////////////////////////////////////////////////////////
+    // 内部 ////////////////////////////////////////////////////////////////
 
     /**
-     * @return transaction context for this transaction
+     * @return 此事务的事务上下文
      */
     public abstract TransactionContext getTransactionContext();
 
     /**
-     * Called when commit() is called. Any exception thrown in this method will cause
-     * the transaction to abort.
+     * 当调用commit()时调用。在此方法中抛出的任何异常都将导致
+     * 事务中止。
      */
     protected abstract void startCommit();
 
     /**
-     * Called when rollback() is called. No exception should be thrown, and any exception
-     * thrown will be interpreted the same as if the method had returned normally.
+     * 当调用rollback()时调用。不应抛出异常，任何抛出的异常
+     * 都将被解释为方法正常返回。
      */
     protected abstract void startRollback();
 }

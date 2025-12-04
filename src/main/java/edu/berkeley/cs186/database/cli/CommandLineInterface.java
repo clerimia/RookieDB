@@ -25,33 +25,33 @@ import java.util.concurrent.TimeUnit;
 
 public class CommandLineInterface {
     private static final String MASCOT = "\n\\|/  ___------___\n \\__|--%s______%s--|\n    |  %-9s |\n     ---______---\n";
-    private static final int[] VERSION = { 1, 8, 6 }; // {major, minor, build}
+    private static final int[] VERSION = { 1, 8, 6 }; // {主版本号, 次版本号, 构建号}
     private static final String LABEL = "fa24";
 
     private InputStream in;
-    private PrintStream out; // Use instead of System.out to work across a network
+    private PrintStream out; // 使用替代System.out以便在网络间工作
     private Database db;
     private Random generator;
 
     public static void main(String args[]) throws IOException {
-        // Basic database for project 0 through 3
+        // 项目0到3的基础数据库
         Database db = new Database("demo", 25);
         
-        // Use the following after completing project 4 (locking)
+        // 完成项目4（锁定）后使用以下代码
         // Database db = new Database("demo", 25, new LockManager());
         
-        // Use the following after completing project 5 (recovery)
+        // 完成项目5（恢复）后使用以下代码
         // Database db = new Database("demo", 25, new LockManager(), new ClockEvictionPolicy(), true);
 
         db.loadDemo();
 
-        CommandLineInterface cli = new CommandLineInterface(db);
+        CommandLineInterface cli = new CommandLineInterface(db); // 初始化一个连接
         cli.run();
         db.close();
     }
 
     public CommandLineInterface(Database db) {
-        // By default, just use standard in and out
+        // 默认情况下，只使用标准输入和输出
         this(db, System.in, System.out);
     }
 
@@ -59,15 +59,15 @@ public class CommandLineInterface {
         this.db = db;
         this.in = in;
         this.out = out;
-        this.generator = new Random();
+        this.generator = new Random(); // 随机数生成器
     }
 
     public void run() {
-        // Welcome message
+        // 欢迎信息
         this.out.printf(MASCOT, "o", "o", institution[this.generator.nextInt(institution.length)]);
-        this.out.printf("\nWelcome to RookieDB (v%d.%d.%d-%s)\n", VERSION[0], VERSION[1], VERSION[2], LABEL);
+        this.out.printf("\n欢迎使用RookieDB (v%d.%d.%d-%s)\n", VERSION[0], VERSION[1], VERSION[2], LABEL);
 
-        // REPL
+        // REPL循环
         Transaction currTransaction = null;
         Scanner inputScanner = new Scanner(this.in);
         String input;
@@ -88,32 +88,32 @@ public class CommandLineInterface {
                     throw new NoSuchElementException();
                 }
             } catch (NoSuchElementException e) {
-                // User sent termination character
+                // 用户发送了终止字符
                 if (currTransaction != null) {
                     currTransaction.rollback();
                     currTransaction.close();
                 }
                 this.out.println("exit");
-                this.out.println("Bye!"); // If MariaDB says it so can we :)
+                this.out.println("再见！"); // 如果MariaDB这样说，我们也可以 :)
                 return;
             }
 
-            // Convert input to raw bytes
+            // 将输入转换为原始字节
             ByteArrayInputStream stream = new ByteArrayInputStream(input.getBytes(StandardCharsets.UTF_8));
-            RookieParser parser = new RookieParser(stream);
+            RookieParser parser = new RookieParser(stream); // 查询解析器
             ASTSQLStatementList node;
             try {
-                node = parser.sql_stmt_list();
+                node = parser.sql_stmt_list(); // 生成SQL语法树
             } catch (ParseException | TokenMgrError e) {
-                this.out.println("Parser exception: " + e.getMessage());
+                this.out.println("解析器异常: " + e.getMessage());
                 continue;
             }
-            StatementListVisitor visitor = new StatementListVisitor(db, this.out);
+            StatementListVisitor visitor = new StatementListVisitor(db, this.out); // 创建一个语句列表访问者， 绑定了数据库和输出流
             try {
-                node.jjtAccept(visitor, null);
-                currTransaction = visitor.execute(currTransaction);
+                node.jjtAccept(visitor, null); // 访问语法树
+                currTransaction = visitor.execute(currTransaction); // 执行语句, 创建一个事务
             } catch (DatabaseException e) {
-                this.out.println("Database exception: " + e.getMessage());
+                this.out.println("数据库异常: " + e.getMessage());
             }
         }
     }
@@ -157,16 +157,16 @@ public class CommandLineInterface {
         TransactionContext t = TransactionContext.getTransaction();
         Table table = t.getTable(tableName);
         if (table == null) {
-            this.out.printf("No table \"%s\" found.", tableName);
+            this.out.printf("未找到表 \"%s\"。", tableName);
             return;
         }
-        this.out.printf("Table \"%s\"\n", tableName);
+        this.out.printf("表 \"%s\"\n", tableName);
         Schema s = table.getSchema();
         new PrettyPrinter(out).printSchema(s);
     }
 
     private void parseMetaCommand(String input, Database db) {
-        input = input.substring(1); // Shave off the initial slash
+        input = input.substring(1); // 去掉开头的斜杠
         String[] tokens = input.split("\\s+");
         String cmd = tokens[0];
         TransactionContext tc = TransactionContext.getTransaction();
@@ -191,13 +191,13 @@ public class CommandLineInterface {
                     records.iterator());
         } else if (cmd.equals("locks")) {
             if (tc == null) {
-                this.out.println("No locks held, because not currently in a transaction.");
+                this.out.println("没有持有锁，因为当前不在事务中。");
             } else {
                 this.out.println(db.getLockManager().getLocks(tc));
             }
         } else {
             throw new IllegalArgumentException(String.format(
-                "`%s` is not a valid metacommand",
+                "`%s` 不是有效的元命令",
                 cmd
             ));
         }
@@ -209,47 +209,47 @@ public class CommandLineInterface {
     };
 
     private static List<String> startupMessages = Arrays
-            .asList("Speaking with the buffer manager", "Saying grace hash",
-                    "Parallelizing parking spaces", "Bulk loading exam preparations",
-                    "Declaring functional independence", "Maintaining long distance entity-relationships" );
+            .asList("与缓冲区管理器对话", "进行优雅的哈希",
+                    "并行化停车空间", "批量加载考试准备",
+                    "声明函数独立性", "维护长距离实体关系" );
 
     private static List<String> startupProblems = Arrays
-            .asList("Rebuilding air quality index", "Extinguishing B+ forest fires",
-                    "Recovering from PG&E outages", "Disinfecting user inputs", "Shellsorting in-place",
-                    "Distributing face masks", "Joining Zoom meetings", "Caching out of the stock market",
-                    "Advising transactions to self-isolate", "Tweaking the quarantine optimizer");
+            .asList("重建空气质量指数", "扑灭B+森林火灾",
+                    "从PG&E停电中恢复", "消毒用户输入", "原地希尔排序",
+                    "分发口罩", "加入Zoom会议", "缓存退出股市",
+                    "建议事务自我隔离", "调整检疫优化器");
 
     private void startup() {
         Collections.shuffle(startupMessages);
         Collections.shuffle(startupProblems);
-        this.out.printf("Starting RookieDB (v%d.%d.%d-%s)\n", VERSION[0], VERSION[1], VERSION[2], LABEL);
+        this.out.printf("启动RookieDB (v%d.%d.%d-%s)\n", VERSION[0], VERSION[1], VERSION[2], LABEL);
         sleep(100);
         for (int i = 0; i < 3; i++) {
             this.out.print(" > " + startupMessages.get(i));
             ellipses();
             sleep(100);
             if (i < 4) {
-                this.out.print(" Done");
+                this.out.print(" 完成");
             } else {
                 ellipses();
-                this.out.print(" Error!");
+                this.out.print(" 错误！");
                 sleep(125);
             }
             sleep(75);
             this.out.println();
         }
-        this.out.println("\nEncountered unexpected problems! Applying fixes:");
+        this.out.println("\n遇到意外问题！应用修复：");
         sleep(100);
         for (int i = 0; i < 3; i++) {
             this.out.print(" > " + startupProblems.get(i));
             ellipses();
-            this.out.print(" Done");
+            this.out.print(" 完成");
             sleep(75);
             this.out.println();
         }
         sleep(100);
         this.out.println();
-        this.out.println("Initialization succeeded!");
+        this.out.println("初始化成功！");
         this.out.println();
     }
 
@@ -264,7 +264,7 @@ public class CommandLineInterface {
         try {
             TimeUnit.MILLISECONDS.sleep(timeMilliseconds);
         } catch (InterruptedException e) {
-            this.out.println("Interrupt signal received.");
+            this.out.println("收到中断信号。");
         }
     }
 }

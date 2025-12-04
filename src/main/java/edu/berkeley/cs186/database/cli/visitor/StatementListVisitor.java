@@ -62,7 +62,7 @@ public class StatementListVisitor extends RookieParserDefaultVisitor {
                     break;
                 default:
                     if (currTransaction == null) {
-                        try (Transaction tmp = database.beginTransaction()) {
+                        try (Transaction tmp = database.beginTransaction()) { // 开启一个临时事务
                             visitor.execute(tmp, out);
                             tmp.commit();
                         } catch (Exception e) {

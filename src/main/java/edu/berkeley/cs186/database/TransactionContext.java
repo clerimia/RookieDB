@@ -19,17 +19,14 @@ import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
 /**
- * Internal transaction-specific methods, used for implementing parts of the database.
+ * 内部特定于事务的方法，用于实现数据库的部分功能。
  *
- * The transaction context for the transaction currently running on the current thread
- * can be fetched via TransactionContext::getTransaction; it is only set during the middle
- * of a Transaction call.
+ * 可以通过 TransactionContext::getTransaction 获取当前线程上运行的事务上下文；
+ * 它只在 Transaction 调用期间设置。
  *
- * This transaction context implementation assumes that exactly one transaction runs
- * on a thread at a time, and that, aside from the unblock() method, no methods
- * of the transaction are called from a different thread than the thread that the
- * transaction is associated with. This implementation blocks the thread when
- * block() is called.
+ * 此事务上下文实现假设每个线程一次只运行一个事务，
+ * 并且除了 unblock() 方法之外，事务的方法不会从与该事务关联的不同线程调用。
+ * 当调用 block() 时，此实现会阻塞线程。
  */
 public abstract class TransactionContext implements AutoCloseable {
     static Map<Long, TransactionContext> threadTransactions = new ConcurrentHashMap<>();
@@ -39,8 +36,8 @@ public abstract class TransactionContext implements AutoCloseable {
     private final Condition unblocked = transactionLock.newCondition();
 
     /**
-     * Fetches the current transaction running on this thread.
-     * @return transaction actively running on this thread or null if none
+     * 获取当前在此线程上运行的事务。
+     * @return 当前线程上活跃运行的事务，如果没有则返回null
      */
     public static TransactionContext getTransaction() {
         long threadId = Thread.currentThread().getId();
@@ -48,20 +45,20 @@ public abstract class TransactionContext implements AutoCloseable {
     }
 
     /**
-     * Sets the current transaction running on this thread.
-     * @param transaction transaction currently running
+     * 设置当前在此线程上运行的事务。
+     * @param transaction 当前正在运行的事务
      */
     public static void setTransaction(TransactionContext transaction) {
         long threadId = Thread.currentThread().getId();
         TransactionContext currTransaction = threadTransactions.get(threadId);
         if (currTransaction != null) {
-            throw new RuntimeException("This thread already has a running transaction: " + currTransaction);
+            throw new RuntimeException("该线程已有一个正在运行的事务: " + currTransaction);
         }
         threadTransactions.put(threadId, transaction);
     }
 
     /**
-     * Unsets the current transaction running on this thread.
+     * 取消设置当前在此线程上运行的事务。
      */
     public static void unsetTransaction() {
         StackTraceElement[] trace = Thread.currentThread().getStackTrace();
@@ -71,94 +68,90 @@ public abstract class TransactionContext implements AutoCloseable {
         long threadId = Thread.currentThread().getId();
         TransactionContext currTransaction = threadTransactions.get(threadId);
         if (currTransaction == null) {
-            throw new IllegalStateException("no transaction to unset");
+            throw new IllegalStateException("没有要取消设置的事务");
         }
         threadTransactions.remove(threadId);
     }
 
-    // Status //////////////////////////////////////////////////////////////////
+    // 状态 //////////////////////////////////////////////////////////////////
 
     /**
-     * @return transaction number
+     * @return 事务编号
      */
     public abstract long getTransNum();
 
     /**
-     * @return the amount of memory (in pages) allocated for this transaction
+     * @return 分配给此事务的内存量（以页为单位）
      */
     public abstract int getWorkMemSize();
 
     @Override
     public abstract void close();
 
-    // Temp Tables and Aliasing ////////////////////////////////////////////////
+    // 临时表和别名 ////////////////////////////////////////////////
     /**
-     * Create a temporary table within this transaction.
+     * 在此事务中创建一个临时表。
      *
-     * @param schema the table schema
-     * @return name of the tempTable
+     * @param schema 表结构
+     * @return 临时表的名称
      */
     public abstract String createTempTable(Schema schema);
 
     /**
-     * Deletes all temporary tables within this transaction.
+     * 删除此事务中的所有临时表。
      */
     public abstract void deleteAllTempTables();
 
     /**
-     * Specify an alias mapping for this transaction. Recursive aliasing is
-     * not allowed.
-     * @param aliasMap mapping of alias names to original table names
+     * 为此事务指定别名映射。不允许递归别名。
+     * @param aliasMap 别名到原始表名的映射
      */
     public abstract void setAliasMap(Map<String, String> aliasMap);
 
     /**
-     * Clears any aliases set.
+     * 清除所有设置的别名。
      */
     public abstract void clearAliasMap();
 
-    // Indices /////////////////////////////////////////////////////////////////
+    // 索引 /////////////////////////////////////////////////////////////////
 
     /**
-     * Perform a check to see if the database has an index on this (table,column).
+     * 检查数据库是否在该（表，列）上有索引。
      *
-     * @param tableName  the name of the table
-     * @param columnName the name of the column
-     * @return boolean if the index exists
+     * @param tableName  表名
+     * @param columnName 列名
+     * @return 如果索引存在则返回true
      */
     public abstract boolean indexExists(String tableName, String columnName);
 
     public abstract void updateIndexMetadata(BPlusTreeMetadata metadata);
 
-    // Scans ///////////////////////////////////////////////////////////////////
+    // 扫描 ///////////////////////////////////////////////////////////////////
 
     /**
-     * Returns an iterator of records in `tableName` sorted in ascending of the
-     * values in `columnName`.
+     * 返回按`columnName`值升序排列的`tableName`中的记录迭代器。
      */
     public abstract Iterator<Record> sortedScan(String tableName, String columnName);
 
     /**
-     * Returns an iterator of records in `tableName` sorted in ascending of the
-     * values in `columnName`, including only records whose value in that column
-     * is greater than or equal to `startValue`.
+     * 返回按`columnName`值升序排列的`tableName`中的记录迭代器，
+     * 仅包括该列中值大于或等于`startValue`的记录。
      */
     public abstract Iterator<Record> sortedScanFrom(String tableName, String columnName, DataBox startValue);
 
     /**
-     * Returns an iterator over the records in `tableName` where the value in
-     * `columnName` are equal to `key`.
+     * 返回`tableName`中`columnName`值等于`key`的记录迭代器。
      */
     public abstract Iterator<Record> lookupKey(String tableName, String columnName, DataBox key);
 
     /**
-     * Returns a backtracking iterator over all of the records in `tableName`.
+     * 返回`tableName`中所有记录的回溯迭代器。
      */
     public abstract BacktrackingIterator<Record> getRecordIterator(String tableName);
 
     public abstract boolean contains(String tableName, String columnName, DataBox key);
 
-    // Record Operations ///////////////////////////////////////////////////////
+    // 记录操作 ///////////////////////////////////////////////////////
     public abstract RecordId addRecord(String tableName, Record record);
 
     public abstract RecordId deleteRecord(String tableName, RecordId rid);
@@ -178,73 +171,72 @@ public abstract class TransactionContext implements AutoCloseable {
 
     public abstract void updateRecordWhere(String tableName, String targetColumnName, Function<Record, DataBox> expr, Function<Record, DataBox> cond);
 
-    // Table/Schema ////////////////////////////////////////////////////////////
+    // 表/模式 ////////////////////////////////////////////////////////////
 
     /**
-     * @param tableName name of table to get schema of
-     * @return schema of table
+     * @param tableName 要获取模式的表名
+     * @return 表的模式
      */
     public abstract Schema getSchema(String tableName);
 
     /**
-     * Same as getSchema, except all column names are fully qualified (tableName.colName).
+     * 与getSchema相同，但所有列名都是完全限定的（tableName.colName）。
      *
-     * @param tableName name of table to get schema of
-     * @return schema of table
+     * @param tableName 要获取模式的表名
+     * @return 表的模式
      */
     public abstract Schema getFullyQualifiedSchema(String tableName);
 
     public abstract Table getTable(String tableName);
 
-    // Statistics //////////////////////////////////////////////////////////////
+    // 统计信息 //////////////////////////////////////////////////////////////
 
     /**
-     * @param tableName name of table to get stats of
-     * @return TableStats object of the table
+     * @param tableName 要获取统计信息的表名
+     * @return 表的TableStats对象
      */
     public abstract TableStats getStats(String tableName);
 
     /**
-     * @param tableName name of table
-     * @return number of data pages used by the table
+     * @param tableName 表名
+     * @return 表使用的数据页数
      */
     public abstract int getNumDataPages(String tableName);
 
     /**
-     * @param tableName name of table
-     * @param columnName name of column
-     * @return order of B+ tree index on tableName.columnName
+     * @param tableName 表名
+     * @param columnName 列名
+     * @return tableName.columnName上B+树索引的阶数
      */
     public abstract int getTreeOrder(String tableName, String columnName);
 
     /**
-     * @param tableName name of table
-     * @param columnName name of column
-     * @return height of B+ tree index on tableName.columnName
+     * @param tableName 表名
+     * @param columnName 列名
+     * @return tableName.columnName上B+树索引的高度
      */
     public abstract int getTreeHeight(String tableName, String columnName);
 
-    // Synchronization /////////////////////////////////////////////////////////
+    // 同步 /////////////////////////////////////////////////////////
 
     /**
-     * prepareBlock acquires the lock backing the condition variable that the transaction
-     * waits on. Must be called before block(), and is used to ensure that the unblock() call
-     * corresponding to the following block() call cannot be run before the transaction blocks.
+     * prepareBlock获取事务等待的条件变量所依赖的锁。
+     * 必须在block()之前调用，用于确保在事务阻塞之前不能运行与后续block()调用对应的unblock()调用。
      */
     public void prepareBlock() {
         if (this.startBlock) {
-            throw new IllegalStateException("already preparing to block");
+            throw new IllegalStateException("已经在准备阻塞");
         }
         this.transactionLock.lock();
         this.startBlock = true;
     }
 
     /**
-     * Blocks the transaction (and thread). prepareBlock() must be called first.
+     * 阻塞事务（和线程）。必须先调用prepareBlock()。
      */
     public void block() {
         if (!this.startBlock) {
-            throw new IllegalStateException("prepareBlock() must be called before block()");
+            throw new IllegalStateException("必须在block()之前调用prepareBlock()");
         }
         try {
             this.blocked = true;
@@ -258,7 +250,7 @@ public abstract class TransactionContext implements AutoCloseable {
     }
 
     /**
-     * Unblocks the transaction (and thread running the transaction).
+     * 解除阻塞事务（和运行事务的线程）。
      */
     public void unblock() {
         this.transactionLock.lock();
@@ -271,7 +263,7 @@ public abstract class TransactionContext implements AutoCloseable {
     }
 
     /**
-     * @return if the transaction is blocked
+     * @return 事务是否被阻塞
      */
     public boolean getBlocked() {
         return this.blocked;
