@@ -16,13 +16,13 @@ public class SelectOperator extends QueryOperator {
     private DataBox value;
 
     /**
-     * Creates a new SelectOperator that pulls from source and only returns tuples for which the
-     * predicate is satisfied.
+     * 创建一个新的SelectOperator，它从source中获取数据，
+     * 并只返回满足谓词条件的元组。
      *
-     * @param source the source of this operator
-     * @param columnName the name of the column to evaluate the predicate on
-     * @param operator the actual comparator
-     * @param value the value to compare against
+     * @param source 该操作符的数据源
+     * @param columnName 需要评估谓词的列名
+     * @param operator 实际的比较器
+     * @param value 要比较的值
      */
     public SelectOperator(QueryOperator source,
                    String columnName,
@@ -50,14 +50,14 @@ public class SelectOperator extends QueryOperator {
 
     @Override
     public String str() {
-        return String.format("Select %s%s%s (cost=%d)",
+        return String.format("选择 %s%s%s (成本=%d)",
                 this.columnName, this.operator.toSymbol(), this.value, this.estimateIOCost());
     }
 
     /**
-     * Estimates the table statistics for the result of executing this query operator.
+     * 估算执行此查询操作符的结果的表统计信息。
      *
-     * @return estimated TableStats
+     * @return 估算的TableStats
      */
     @Override
     public TableStats estimateStats() {
@@ -76,7 +76,7 @@ public class SelectOperator extends QueryOperator {
     public Iterator<Record> iterator() { return new SelectIterator(); }
 
     /**
-     * An implementation of Iterator that provides an iterator interface for this operator.
+     * 为该操作符提供迭代器接口的Iterator实现。
      */
     private class SelectIterator implements Iterator<Record> {
         private Iterator<Record> sourceIterator;
@@ -88,15 +88,20 @@ public class SelectOperator extends QueryOperator {
         }
 
         /**
-         * Checks if there are more record(s) to yield
-         *
-         * @return true if this iterator has another record to yield, otherwise false
+         * 检查是否有更多的记录可以产出
+         * 这个函数会尝试从源迭代器中产生一个记录，也就是给nextRecord赋值
+         * 如果已经缓存了一个就返回true
+         * 如果没有缓存记录，就调用源迭代器的next知道获取一条满足要求记录返回true
+         * 的或者没有记录了返回false
+         * @return 如果此迭代器还有另一个可产出的记录则返回true，否则返回false
          */
         @Override
         public boolean hasNext() {
+            // 如果当前还缓存有记录，直接返回True
             if (this.nextRecord != null) {
                 return true;
             }
+            // 如果没有缓存记录了，就尝试向源操作符迭代器获取记录
             while (this.sourceIterator.hasNext()) {
                 Record r = this.sourceIterator.next();
                 switch (SelectOperator.this.operator) {
@@ -150,10 +155,10 @@ public class SelectOperator extends QueryOperator {
         }
 
         /**
-         * Yields the next record of this iterator.
+         * 产生此迭代器的下一个记录。
          *
-         * @return the next Record
-         * @throws NoSuchElementException if there are no more Records to yield
+         * @return 下一个Record
+         * @throws NoSuchElementException 如果没有更多记录可产生
          */
         @Override
         public Record next() {
@@ -167,6 +172,7 @@ public class SelectOperator extends QueryOperator {
 
         @Override
         public void remove() {
+            // 没有提供的操作
             throw new UnsupportedOperationException();
         }
     }

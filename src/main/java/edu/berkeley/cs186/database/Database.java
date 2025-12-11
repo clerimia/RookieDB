@@ -44,122 +44,113 @@ import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
 /**
- * Database objects keeps track of transactions, tables, and indices
- * and delegates work to its disk manager, buffer manager, lock manager and
- * recovery manager.
+ * 数据库对象负责跟踪事务、表和索引，并将工作委派给磁盘管理器、缓冲区管理器、
+ * 锁管理器和恢复管理器。
  *
- * A Database instance operates on files in the directory specified by the `fileDir`
- * argument in the constructors. The files in this directory will be modified by
- * a DiskSpaceManager instance. Upon starting up for the following partitions
- * are allocated through the disk space manager:
- *  - Partition 0: used for log records from the recovery manager
- *  - Partition 1: used by the _metadata.tables table, which persists
- *    information about user created tables
- *  - Partition 2: used by the _metadata.indices table, which persists
- *    information about user created indices
+ * 数据库实例在其构造函数中指定的 `fileDir` 参数所指向的目录中操作文件。
+ * 目录中的文件将由 DiskSpaceManager 实例进行修改。启动时，通过磁盘空间管理器
+ * 分配以下分区：
+ *  - 分区 0：用于恢复管理器的日志记录
+ *  - 分区 1：用于 _metadata.tables 表，该表持久化用户创建的表的信息
+ *  - 分区 2：用于 _metadata.indices 表，该表持久化用户创建的索引的信息
  *
- * Each partition corresponds to a file in `fileDir`. The remaining partitions
- * are used for user created tables and are allocated as tables are created.
+ * 每个分区对应于 `fileDir` 中的一个文件。剩余的分区用于用户创建的表，
+ * 并在创建表时进行分配。
  *
- * Metadata tables are manually synchronized and use a special locking hierarchy
- * to improve concurrency. The methods to lock and access metadata has already
- * been implemented.
- * - _metadata.tables is a child resource of the database. The children of
- *   _metadata.tables are the names of a regular user tables. For example, if a
- *   user wants exclusive access on the metadata of the table `myTable`, they
- *   would have to acquire an X lock on the resource `database/_metadata.tables/mytable`.
+ * 元数据表是手动同步的，并使用特殊的锁定层次结构来提高并发性。
+ * 锁定和访问元数据的方法已经实现。
+ * - _metadata.tables 是数据库的子资源。_metadata.tables 的子项是常规用户表的名称。
+ *   例如，如果用户想要获得对表 `myTable` 的元数据的独占访问权限，
+ *   则他们必须在资源 `database/_metadata.tables/mytable` 上获取 X 锁。
  *
- * - _metadata.indices is a child resource of the database. The children of
- *   _metadata.indices are the names of regular user tables. The grandchildren are
- *   the names of indices. For example, if a user wants to get shared access to
- *   the index on column `rowId` of `someTable`, they would need to acquire an
- *   S lock on `database/_metadata.indices/someTable/rowId`. If a user wanted
- *   to acquire exclusive access on all of the indices of `someTable` (for example
- *   to insert a new record into every index) they would need to acquire an
- *   X lock on `database/_metadata.indices/someTable`.
+ * - _metadata.indices 是数据库的子资源。_metadata.indices 的子项是常规用户表的名称。
+ *   孙项是索引的名称。例如，如果用户想要获得对 `someTable` 表的 `rowId` 列索引的共享访问权限，
+ *   则他们需要在 `database/_metadata.indices/someTable/rowId` 上获取 S 锁。
+ *   如果用户想要获得对 `someTable` 所有索引的独占访问权限（例如，为了在每个索引中插入新记录），
+ *   则他们需要在 `database/_metadata.indices/someTable` 上获取 X 锁。
  */
 public class Database implements AutoCloseable {
     private static final String METADATA_TABLE_PREFIX = "_metadata.";
     private static final String TABLE_INFO_TABLE_NAME = METADATA_TABLE_PREFIX + "tables";
     private static final String INDEX_INFO_TABLE_NAME = METADATA_TABLE_PREFIX + "indices";
-    private static final int DEFAULT_BUFFER_SIZE = 262144; // default of 1G
-    // effective page size - table metadata size
+    private static final int DEFAULT_BUFFER_SIZE = 262144; // 默认1G
+    // 有效页面大小 - 表元数据大小
     private static final int MAX_SCHEMA_SIZE = 4006;
 
-    // _metadata.tables, manages all tables in the database
+    // _metadata.tables，管理数据库中的所有表
     private Table tableMetadata;
-    // _metadata.indices, manages all indices in the database
+    // _metadata.indices，管理数据库中的所有索引
     private Table indexMetadata;
-    // number of transactions created
+    // 创建的事务数量
     private long numTransactions;
 
-    // lock manager
+    // 锁管理器
     private final LockManager lockManager;
-    // disk space manager
+    // 磁盘空间管理器
     private final DiskSpaceManager diskSpaceManager;
-    // buffer manager
+    // 缓冲区管理器
     private final BufferManager bufferManager;
-    // recovery manager
+    // 恢复管理器
     private final RecoveryManager recoveryManager;
 
-    // number of pages of memory to use for joins, etc.
-    private int workMem = 1024; // default of 4M
-    // number of pages of memory available total
+    // 用于连接等操作的内存页数
+    private int workMem = 1024; // 默认4M
+    // 总共可用的内存页数
     private int numMemoryPages;
-    // active transactions
+    // 活跃事务
     private Phaser activeTransactions = new Phaser(0);
-    // Statistics about the contents of the database.
+    // 关于数据库内容的统计信息
     private Map<String, TableStats> stats = new ConcurrentHashMap<>();
 
-    // Names of tables loaded for demo
+    // 为演示加载的表名
     private ArrayList<String> demoTables = new ArrayList<>();
 
     /**
-     * Creates a new database with:
-     * - Default buffer size
-     * - Locking disabled (DummyLockManager)
-     * - Clock eviction policy
-     * - Recovery manager disabled (DummyRecoverManager)
+     * 创建一个新的数据库，具有以下默认设置：
+     * - 默认缓冲区大小
+     * - 锁定禁用（DummyLockManager）
+     * - 时钟淘汰策略
+     * - 恢复管理器禁用（DummyRecoverManager）
      *
-     * @param fileDir the directory to put the table files in
+     * @param fileDir 存放表文件的目录
      */
     public Database(String fileDir) {
         this (fileDir, DEFAULT_BUFFER_SIZE);
     }
 
     /**
-     * Creates a new database with defaults:
-     * - Locking disabled (DummyLockManager)
-     * - Clock eviction policy
-     * - Recovery manager disabled (DummyRecoverManager)
+     * 创建一个新的数据库，具有以下默认设置：
+     * - 锁定禁用（DummyLockManager）
+     * - 时钟淘汰策略
+     * - 恢复管理器禁用（DummyRecoverManager）
      *
-     * @param fileDir the directory to put the table files in
-     * @param numMemoryPages the number of pages of memory in the buffer cache
+     * @param fileDir 存放表文件的目录
+     * @param numMemoryPages 缓冲区缓存中的内存页数
      */
     public Database(String fileDir, int numMemoryPages) {
         this(fileDir, numMemoryPages, new DummyLockManager());
     }
 
     /**
-     * Creates a new database with defaults:
-     * - Clock eviction policy
-     * - Recovery manager disabled (DummyRecoverManager)
+     * 创建一个新的数据库，具有以下默认设置：
+     * - 时钟淘汰策略
+     * - 恢复管理器禁用（DummyRecoverManager）
      *
-     * @param fileDir the directory to put the table files in
-     * @param numMemoryPages the number of pages of memory in the buffer cache
-     * @param lockManager the lock manager
+     * @param fileDir 存放表文件的目录
+     * @param numMemoryPages 缓冲区缓存中的内存页数
+     * @param lockManager 锁管理器
      */
     public Database(String fileDir, int numMemoryPages, LockManager lockManager) {
         this(fileDir, numMemoryPages, lockManager, new ClockEvictionPolicy());
     }
 
     /**
-     * Creates a new database with recovery disabled (DummyRecoveryManager)
+     * 创建一个新的数据库，恢复功能禁用（DummyRecoveryManager）
      *
-     * @param fileDir the directory to put the table files in
-     * @param numMemoryPages the number of pages of memory in the buffer cache
-     * @param lockManager the lock manager
-     * @param policy eviction policy for buffer cache
+     * @param fileDir 存放表文件的目录
+     * @param numMemoryPages 缓冲区缓存中的内存页数
+     * @param lockManager 锁管理器
+     * @param policy 缓冲区缓存的淘汰策略
      */
     public Database(String fileDir, int numMemoryPages, LockManager lockManager,
                     EvictionPolicy policy) {
@@ -167,13 +158,13 @@ public class Database implements AutoCloseable {
     }
 
     /**
-     * Creates a new database.
+     * 创建一个新的数据库。
      *
-     * @param fileDir the directory to put the table files in
-     * @param numMemoryPages the number of pages of memory in the buffer cache
-     * @param lockManager the lock manager
-     * @param policy eviction policy for buffer cache
-     * @param useRecoveryManager flag to enable or disable the recovery manager (ARIES)
+     * @param fileDir 存放表文件的目录
+     * @param numMemoryPages 缓冲区缓存中的内存页数
+     * @param lockManager 锁管理器
+     * @param policy 缓冲区缓存的淘汰策略
+     * @param useRecoveryManager 启用或禁用恢复管理器（ARIES）的标志
      */
     public Database(String fileDir, int numMemoryPages, LockManager lockManager,
                     EvictionPolicy policy, boolean useRecoveryManager) {
@@ -193,10 +184,10 @@ public class Database implements AutoCloseable {
         bufferManager = new BufferManager(diskSpaceManager, recoveryManager, numMemoryPages,
                                               policy);
 
-        // create log partition
+        // 创建日志分区
         if (!initialized) diskSpaceManager.allocPart(0);
 
-        // Performs recovery
+        // 执行恢复
         recoveryManager.setManagers(diskSpaceManager, bufferManager);
         if (!initialized) recoveryManager.initialize();
         recoveryManager.restart();
@@ -204,7 +195,7 @@ public class Database implements AutoCloseable {
         Transaction initTransaction = beginTransaction();
 
         if (!initialized) {
-            // _metadata.tables partition, and _metadata.indices partition
+            // _metadata.tables 分区和 _metadata.indices 分区
             diskSpaceManager.allocPart(1);
             diskSpaceManager.allocPart(2);
         }

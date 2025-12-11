@@ -78,12 +78,10 @@ public class SortOperator extends QueryOperator {
     }
 
     /**
-     * Returns a Run containing records from the input iterator in sorted order.
-     * You're free to use an in memory sort over all the records using one of
-     * Java's built-in sorting methods.
+     * 返回一个包含输入迭代器中记录的已排序Run。
+     * 您可以自由地使用Java内置排序方法之一对所有记录进行内存内排序。
      *
-     * @return a single sorted run containing all the records from the input
-     * iterator
+     * @return 包含来自输入迭代器的所有记录的单个已排序Run
      */
     public Run sortRun(Iterator<Record> records) {
         // TODO(proj3_part1): implement
@@ -91,19 +89,15 @@ public class SortOperator extends QueryOperator {
     }
 
     /**
-     * Given a list of sorted runs, returns a new run that is the result of
-     * merging the input runs. You should use a Priority Queue (java.util.PriorityQueue)
-     * to determine which record should be should be added to the output run
-     * next.
+     * 给定一个已排序的Run列表，返回一个新的Run，它是合并输入Run的结果。
+     * 您应该使用优先队列(java.util.PriorityQueue)来确定下一个应该添加到输出Run中的记录。
      *
-     * You are NOT allowed to have more than runs.size() records in your
-     * priority queue at a given moment. It is recommended that your Priority
-     * Queue hold Pair<Record, Integer> objects where a Pair (r, i) is the
-     * Record r with the smallest value you are sorting on currently unmerged
-     * from run i. `i` can be useful to locate which record to add to the queue
-     * next after the smallest element is removed.
+     * 在任何给定时刻，您不允许在优先队列中有超过runs.size()条记录。
+     * 建议您的优先队列保存Pair<Record, Integer>对象，
+     * 其中Pair (r, i)表示当前从未合并的第i个Run中取出的具有最小排序值的记录r。
+     * `i`在从队列中移除最小元素后，可用于定位下一个要添加到队列中的记录。
      *
-     * @return a single sorted run obtained by merging the input runs
+     * @return 通过合并输入Run获得的单个已排序Run
      */
     public Run mergeSortedRuns(List<Run> runs) {
         assert (runs.size() <= this.numBuffers - 1);
@@ -112,9 +106,8 @@ public class SortOperator extends QueryOperator {
     }
 
     /**
-     * Compares the two (record, integer) pairs based only on the record
-     * component using the default comparator. You may find this useful for
-     * implementing mergeSortedRuns.
+     * 仅根据默认比较器比较两个(记录, 整数)对的记录组件。
+     * 您可能会发现这对实现mergeSortedRuns很有用。
      */
     private class RecordPairComparator implements Comparator<Pair<Record, Integer>> {
         @Override
@@ -124,12 +117,11 @@ public class SortOperator extends QueryOperator {
     }
 
     /**
-     * Given a list of N sorted runs, returns a list of sorted runs that is the
-     * result of merging (numBuffers - 1) of the input runs at a time. If N is
-     * not a perfect multiple of (numBuffers - 1) the last sorted run should be
-     * the result of merging less than (numBuffers - 1) runs.
+     * 给定N个已排序的Run列表，返回一个已排序Run列表，
+     * 该列表是每次合并(numBuffers - 1)个输入Run的结果。
+     * 如果N不是(numBuffers - 1)的完美倍数，则最后一个已排序Run应该是合并少于(numBuffers - 1)个Run的结果。
      *
-     * @return a list of sorted runs obtained by merging the input runs
+     * @return 通过合并输入Run获得的已排序Run列表
      */
     public List<Run> mergePass(List<Run> runs) {
         // TODO(proj3_part1): implement
@@ -137,15 +129,14 @@ public class SortOperator extends QueryOperator {
     }
 
     /**
-     * Does an external merge sort over the records of the source operator.
-     * You may find the getBlockIterator method of the QueryOperator class useful
-     * here to create your initial set of sorted runs.
+     * 对源操作符的记录执行外部归并排序。
+     * 您可能会发现QueryOperator类的getBlockIterator方法在这里很有用，
+     * 可以用来创建初始的已排序Run集合。
      *
-     * @return a single run containing all of the source operator's records in
-     * sorted order.
+     * @return 包含源操作符所有记录的单个已排序Run
      */
     public Run sort() {
-        // Iterator over the records of the relation we want to sort
+        // 我们想要排序的关系的记录迭代器
         Iterator<Record> sourceIterator = getSource().iterator();
 
         // TODO(proj3_part1): implement
@@ -153,7 +144,7 @@ public class SortOperator extends QueryOperator {
     }
 
     /**
-     * @return a new empty run.
+     * @return 一个新的空Run。
      */
     public Run makeRun() {
         return new Run(this.transaction, getSchema());
@@ -161,7 +152,7 @@ public class SortOperator extends QueryOperator {
 
     /**
      * @param records
-     * @return A new run containing the records in `records`
+     * @return 包含`records`中记录的新Run
      */
     public Run makeRun(List<Record> records) {
         Run run = new Run(this.transaction, getSchema());

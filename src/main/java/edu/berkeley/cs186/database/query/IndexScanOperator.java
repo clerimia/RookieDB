@@ -109,16 +109,19 @@ class IndexScanOperator extends QueryOperator {
 
         private IndexScanIterator() {
             this.nextRecord = null;
+            // ==
             if (IndexScanOperator.this.predicate == PredicateOperator.EQUALS) {
                 this.sourceIterator = IndexScanOperator.this.transaction.lookupKey(
                                           IndexScanOperator.this.tableName,
                                           IndexScanOperator.this.columnName,
                                           IndexScanOperator.this.value);
+                // < <=
             } else if (IndexScanOperator.this.predicate == PredicateOperator.LESS_THAN ||
                        IndexScanOperator.this.predicate == PredicateOperator.LESS_THAN_EQUALS) {
                 this.sourceIterator = IndexScanOperator.this.transaction.sortedScan(
                                           IndexScanOperator.this.tableName,
                                           IndexScanOperator.this.columnName);
+                // >
             } else if (IndexScanOperator.this.predicate == PredicateOperator.GREATER_THAN) {
                 this.sourceIterator = IndexScanOperator.this.transaction.sortedScanFrom(
                                           IndexScanOperator.this.tableName,

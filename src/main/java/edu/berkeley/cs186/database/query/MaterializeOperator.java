@@ -7,10 +7,10 @@ import java.util.List;
 
 public class MaterializeOperator extends SequentialScanOperator {
     /**
-     * Operator that materializes the source operator into a temporary table immediately,
-     * and then acts as a sequential scan operator over the temporary table.
-     * @param source source operator to be materialized
-     * @param transaction current running transaction
+     * 将源操作符立即物化到临时表中的操作符，
+     * 然后作为临时表上的顺序扫描操作符。
+     * @param source 要物化的源操作符
+     * @param transaction 当前运行的事务
      */
     public MaterializeOperator(QueryOperator source,
                         TransactionContext transaction) {
@@ -29,7 +29,7 @@ public class MaterializeOperator extends SequentialScanOperator {
 
     @Override
     public String str() {
-        return "Materialize (cost: " + this.estimateIOCost() + ")";
+        return "物化 (成本: " + this.estimateIOCost() + ")";
     }
 
     @Override
