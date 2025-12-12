@@ -211,7 +211,7 @@ public class TestGraceHashJoin {
                 fail("SHJ worked! It shouldn't have...");
             } catch (Exception e) {
                 assertEquals("Simple Hash failed for the wrong reason!",
-                        "The records in this partition cannot fit in B-2 pages of memory.", e.getMessage());
+                        "此分区中的记录无法适应B-2页内存。", e.getMessage());
             }
 
             GHJOperator ghj = new GHJOperator(
@@ -258,7 +258,7 @@ public class TestGraceHashJoin {
                 fail("GHJ Worked! It shouldn't have...");
             } catch (Exception e) {
                 assertEquals("GHJ Failed for the wrong reason...",
-                        "Reached the max number of passes", e.getMessage());
+                        "已达到最大传递次数", e.getMessage());
             }
         }
     }

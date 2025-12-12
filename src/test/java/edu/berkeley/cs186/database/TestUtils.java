@@ -30,7 +30,7 @@ public class TestUtils {
     }
 
     public static Record createRecordWithAllTypesWithValue(int val) {
-        return new Record(true, val, "" + (char) (val % 79 + 0x30), 1.0f);
+        return new Record(true, val, "" + (char) (val % 79 + 0x30), 1.0f * val);
     }
 
     public static TestSourceOperator createSourceWithInts(List<Integer> values) {

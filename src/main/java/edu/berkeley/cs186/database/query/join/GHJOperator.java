@@ -31,8 +31,7 @@ public class GHJOperator extends JoinOperator {
 
     @Override
     public int estimateIOCost() {
-        // Since this has a chance of failing on certain inputs we give it the
-        // maximum possible cost to encourage the optimizer to avoid it
+        // 由于此算法在某些输入上可能会失败，我们给予它最大可能的成本以鼓励优化器避免使用它
         return Integer.MAX_VALUE;
     }
 
@@ -42,9 +41,8 @@ public class GHJOperator extends JoinOperator {
     @Override
     public BacktrackingIterator<Record> backtrackingIterator() {
         if (joinedRecords == null) {
-            // Executing GHJ on-the-fly is arduous without coroutines, so
-            // instead we'll accumulate all of our joined records in this run
-            // and return an iterator over it once the algorithm completes
+            // 在没有协程的情况下实时执行GHJ非常繁琐，因此我们将把所有连接的记录累积到这个运行中
+            // 并在算法完成后返回其上的迭代器
             this.joinedRecords = new Run(getTransaction(), getSchema());
             this.run(getLeftSource(), getRightSource(), 1);
         };
@@ -57,37 +55,47 @@ public class GHJOperator extends JoinOperator {
     }
 
     /**
-     * For every record in the given iterator, hashes the value
-     * at the column we're joining on and adds it to the correct partition in
-     * partitions.
+     * 对于给定迭代器中的每条记录，对其连接列上的值进行哈希处理，
+     * 并将其添加到分区中的正确分区。
      *
-     * @param partitions an array of partitions to split the records into
-     * @param records iterable of records we want to partition
-     * @param left true if records are from the left relation, otherwise false
-     * @param pass the current pass (used to pick a hash function)
+     * @param partitions 要将记录分割到的分区数组
+     * @param records 我们想要分区的记录的可迭代对象
+     * @param left 如果记录来自左关系则为true，否则为false
+     * @param pass 当前传递次数（用于选择哈希函数）
      */
     private void partition(Partition[] partitions, Iterable<Record> records, boolean left, int pass) {
-        // TODO(proj3_part1): implement the partitioning logic
-        // You may find the implementation in SHJOperator.java to be a good
-        // starting point. You can use the static method HashFunc.hashDataBox
-        // to get a hash value.
-        return;
+        // TODO(proj3_part1): 实现分区逻辑
+        // 您可能会发现SHJOperator.java中的实现是一个很好的起点。
+        // 您可以使用静态方法HashFunc.hashDataBox来获取哈希值。
+        // pass 代表进行多次分区
+        // 进行分区
+        for (Record record : records) {
+            // 获取连接值
+            DataBox columnValue = record.getValue(left ? getLeftColumnIndex() : getRightColumnIndex());
+            // 进行哈希
+            int hash = HashFunc.hashDataBox(columnValue, pass);
+            // 取模得到要使用的分区
+            int partitionNum = hash % partitions.length;
+            if (partitionNum < 0)  // 哈希可能是负数
+                partitionNum += partitions.length;
+            // 插入到对应的分区
+            partitions[partitionNum].add(record);
+        }
     }
 
     /**
-     * Runs the buildAndProbe stage on a given partition. Should add any
-     * matching records found during the probing stage to this.joinedRecords.
+     * 在给定分区上运行构建和探测阶段。应该将探测阶段找到的任何匹配记录添加到this.joinedRecords。
      */
     private void buildAndProbe(Partition leftPartition, Partition rightPartition) {
-        // true if the probe records come from the left partition, false otherwise
+        // 如果探测记录来自左分区则为true，否则为false
         boolean probeFirst;
-        // We'll build our in memory hash table with these records
+        // 我们将用这些记录在内存中构建哈希表
         Iterable<Record> buildRecords;
-        // We'll probe the table with these records
+        // 我们将用这些记录探测表
         Iterable<Record> probeRecords;
-        // The index of the join column for the build records
+        // 构建记录的连接列索引
         int buildColumnIndex;
-        // The index of the join column for the probe records
+        // 探测记录的连接列索引
         int probeColumnIndex;
 
         if (leftPartition.getNumPages() <= this.numBuffers - 2) {
@@ -104,48 +112,85 @@ public class GHJOperator extends JoinOperator {
             probeFirst = true;
         } else {
             throw new IllegalArgumentException(
-                "Neither the left nor the right records in this partition " +
-                "fit in B-2 pages of memory."
+                "此分区中的左记录和右记录都不适合B-2页内存。"
             );
         }
-        // TODO(proj3_part1): implement the building and probing stage
-        // You shouldn't refer to any variable starting with "left" or "right"
-        // here, use the "build" and "probe" variables we set up for you.
-        // Check out how SHJOperator implements this function if you feel stuck.
+        // 您不应该在这里引用任何以"left"或"right"开头的变量，
+        // 使用我们为您设置的"build"和"probe"变量。
+        // 如果您感到困惑，请查看SHJOperator如何实现此功能。
+        // 要看哪个表的分区能够直接加载到内存
+
+        Map<DataBox, List<Record>> hashTable = new HashMap<>();
+        // 构建阶段
+        for (Record buildRecord : buildRecords) {
+            // 对于内存中的表，加载到内存中构建哈希表
+
+            // 获取连接值
+            DataBox columnValue = buildRecord.getValue(buildColumnIndex);
+
+            // 创建一个 Hash Bin
+            if (!hashTable.containsKey(columnValue)) {
+                hashTable.put(columnValue, new ArrayList<>());
+            }
+
+            // 加入到对应的 Hash Bin
+            hashTable.get(columnValue).add(buildRecord);
+        }
+
+        // 探测阶段
+        for (Record probeRecord : probeRecords) {
+
+            // 获取探测表的连接值
+            DataBox columnValue = probeRecord.getValue(probeColumnIndex);
+
+            // 到hash表中进行匹配
+            if (!hashTable.containsKey(columnValue)) continue;
+
+            // 匹配到了，进行连接
+            for (Record buildRecord : hashTable.get(columnValue)) {
+                Record joinRecord = probeFirst ? probeRecord.concat(buildRecord) : buildRecord.concat(probeRecord);
+                this.joinedRecords.add(joinRecord);
+            }
+
+        }
     }
 
     /**
-     * Runs the grace hash join algorithm. Each pass starts by partitioning
-     * leftRecords and rightRecords. If we can run build and probe on a
-     * partition we should immediately do so, otherwise we should apply the
-     * grace hash join algorithm recursively to break up the partitions further.
+     * 运行优雅哈希连接算法。每次传递都从分区开始
+     * leftRecords和rightRecords。
+     * 如果我们可以在分区上运行构建和探测，
+     * 我们应该立即执行，否则我们应该递归地应用优雅哈希连接算法进一步分解分区。
      */
     private void run(Iterable<Record> leftRecords, Iterable<Record> rightRecords, int pass) {
         assert pass >= 1;
-        if (pass > 5) throw new IllegalStateException("Reached the max number of passes");
+        if (pass > 5) throw new IllegalStateException("已达到最大传递次数");
 
-        // Create empty partitions
+        // 创建空分区
         Partition[] leftPartitions = createPartitions(true);
         Partition[] rightPartitions = createPartitions(false);
 
-        // Partition records into left and right
+        // 将记录分区到左和右
         this.partition(leftPartitions, leftRecords, true, pass);
         this.partition(rightPartitions, rightRecords, false, pass);
 
         for (int i = 0; i < leftPartitions.length; i++) {
-            // TODO(proj3_part1): implement the rest of grace hash join
-            // If you meet the conditions to run the build and probe you should
-            // do so immediately. Otherwise you should make a recursive call.
+            // 如果您满足运行构建和探测的条件，您应该立即执行。
+            // 否则您应该进行递归调用。
+            if (leftPartitions[i].getNumPages() <= this.numBuffers - 2 || rightPartitions[i].getNumPages() <= this.numBuffers - 2) {
+                buildAndProbe(leftPartitions[i], rightPartitions[i]);
+            } else {
+                // 递归调用
+                run(leftPartitions[i], rightPartitions[i], pass + 1);
+            }
         }
     }
 
-    // Provided Helpers ////////////////////////////////////////////////////////
+    // 提供的帮助方法 ////////////////////////////////////////////////////////
 
     /**
-     * Create an appropriate number of partitions relative to the number of
-     * available buffers we have.
+     * 根据我们拥有的可用缓冲区数量创建适当数量的分区。
      *
-     * @return an array of partitions
+     * @return 分区数组
      */
     private Partition[] createPartitions(boolean left) {
         int usableBuffers = this.numBuffers - 1;
@@ -157,11 +202,9 @@ public class GHJOperator extends JoinOperator {
     }
 
     /**
-     * Creates either a regular partition or a smart partition depending on the
-     * value of this.useSmartPartition.
-     * @param left true if this partition will store records from the left
-     *             relation, false otherwise
-     * @return a partition to store records from the specified partition
+     * 根据this.useSmartPartition的值创建常规分区或智能分区。
+     * @param left 如果此分区将存储来自左关系的记录则为true，否则为false
+     * @return 用于存储指定分区记录的分区
      */
     private Partition createPartition(boolean left) {
         Schema schema = getRightSource().getSchema();
@@ -169,15 +212,14 @@ public class GHJOperator extends JoinOperator {
         return new Partition(getTransaction(), schema);
     }
 
-    // Student Input Methods ///////////////////////////////////////////////////
+    // 学生输入方法 ///////////////////////////////////////////////////
 
     /**
-     * Creates a record using val as the value for a single column of type int.
-     * An extra column containing a 500 byte string is appended so that each
-     * page will hold exactly 8 records.
+     * 使用val作为单个int类型列的值创建记录。
+     * 添加一个包含500字节字符串的额外列，以便每个页面正好容纳8条记录。
      *
-     * @param val value the field will take
-     * @return a record
+     * @param val 字段将采用的值
+     * @return 记录
      */
     private static Record createRecord(int val) {
         String s = new String(new char[500]);
@@ -185,45 +227,49 @@ public class GHJOperator extends JoinOperator {
     }
 
     /**
-     * This method is called in testBreakSHJButPassGHJ.
+     * 此方法在testBreakSHJButPassGHJ中调用。
      *
-     * Come up with two lists of records for leftRecords and rightRecords such
-     * that SHJ will error when given those relations, but GHJ will successfully
-     * run. createRecord(int val) takes in an integer value and returns a record
-     * with that value in the column being joined on.
+     * 提出两个记录列表leftRecords和rightRecords，
+     * 使得SHJ在处理这些关系时会出错，但GHJ会成功运行。
+     * createRecord(int val)接受一个整数值并返回一条记录，
+     * 该记录在连接列上具有该值。
      *
-     * Hints: Both joins will have access to B=6 buffers and each page can fit
-     * exactly 8 records.
+     * 提示：两个连接都将访问B=6个缓冲区，每个页面可以恰好容纳8条记录。
+     * 也就是哈希表能够容纳32条记录
      *
-     * @return Pair of leftRecords and rightRecords
+     * @return leftRecords和rightRecords的配对
      */
     public static Pair<List<Record>, List<Record>> getBreakSHJInputs() {
         ArrayList<Record> leftRecords = new ArrayList<>();
         ArrayList<Record> rightRecords = new ArrayList<>();
 
-        // TODO(proj3_part1): populate leftRecords and rightRecords such that
-        // SHJ breaks when trying to join them but not GHJ
+        for (int i = 0; i < 50; i++) {
+            leftRecords.add(createRecord(1));
+            rightRecords.add(createRecord(2));
+        }
+        // 使得SHJ在尝试连接它们时会中断，但GHJ不会
         return new Pair<>(leftRecords, rightRecords);
     }
 
     /**
-     * This method is called in testGHJBreak.
+     * 此方法在testGHJBreak中调用。
      *
-     * Come up with two lists of records for leftRecords and rightRecords such
-     * that GHJ will error (in our case hit the maximum number of passes).
-     * createRecord(int val) takes in an integer value and returns a record
-     * with that value in the column being joined on.
+     * 提出两个记录列表leftRecords和rightRecords，
+     * 使得GHJ会出错（在我们的情况下是达到最大传递次数）。
+     * createRecord(int val)接受一个整数值并返回一条记录，
+     * 该记录在连接列上具有该值。
      *
-     * Hints: Both joins will have access to B=6 buffers and each page can fit
-     * exactly 8 records.
+     * 提示：两个连接都将访问B=6个缓冲区，每个页面可以恰好容纳8条记录。
      *
-     * @return Pair of leftRecords and rightRecords
+     * @return leftRecords和rightRecords的配对
      */
     public static Pair<List<Record>, List<Record>> getBreakGHJInputs() {
         ArrayList<Record> leftRecords = new ArrayList<>();
         ArrayList<Record> rightRecords = new ArrayList<>();
-        // TODO(proj3_part1): populate leftRecords and rightRecords such that GHJ breaks
-
+        for (int i = 0; i < 50; i++) {
+            leftRecords.add(createRecord(1));
+            rightRecords.add(createRecord(1));
+        }
         return new Pair<>(leftRecords, rightRecords);
     }
 }

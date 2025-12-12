@@ -10,8 +10,7 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 /**
- * Performs an equijoin between two relations on leftColumnName and
- * rightColumnName respectively using the Simple Nested Loop Join algorithm.
+ * 使用简单嵌套循环连接算法对左右两个关系的leftColumnName和rightColumnName列执行等值连接。
  */
 public class SNLJOperator extends JoinOperator {
     public SNLJOperator(QueryOperator leftSource,
@@ -19,6 +18,7 @@ public class SNLJOperator extends JoinOperator {
                         String leftColumnName,
                         String rightColumnName,
                         TransactionContext transaction) {
+        // 需要对右表先进行物化
         super(leftSource, materialize(rightSource, transaction),
               leftColumnName, rightColumnName, transaction, JoinType.SNLJ);
         this.stats = this.estimateStats();
@@ -26,6 +26,7 @@ public class SNLJOperator extends JoinOperator {
 
     @Override
     public Iterator<Record> iterator() {
+        // 获取一个迭代器
         return new SNLJIterator();
     }
 
@@ -37,52 +38,57 @@ public class SNLJOperator extends JoinOperator {
     }
 
     /**
-     * A record iterator that executes the logic for a simple nested loop join.
-     * Note that the left table is the "outer" loop and the right table is the
-     * "inner" loop.
+     * 执行简单嵌套循环连接逻辑的记录迭代器。
+     * 注意左表是"外"循环，右表是"内"循环。
      */
     private class SNLJIterator implements Iterator<Record> {
-        // Iterator over all the records of the left relation
+        // 左关系所有记录的迭代器
         private Iterator<Record> leftSourceIterator;
-        // Iterator over all the records of the right relation
+        // 右关系所有记录的迭代器
         private BacktrackingIterator<Record> rightSourceIterator;
-        // The current record from the left relation
+        // 来自左关系的当前记录
         private Record leftRecord;
-        // The next record to return
+        // 下一个要返回的记录
         private Record nextRecord;
 
         public SNLJIterator() {
             super();
             this.leftSourceIterator = getLeftSource().iterator();
+
+            // 先缓存一个左边的记录
             if (leftSourceIterator.hasNext()) leftRecord = leftSourceIterator.next();
 
+            // 设置第一个记录为返回点
             this.rightSourceIterator = getRightSource().backtrackingIterator();
             this.rightSourceIterator.markNext();
         }
 
         /**
-         * Returns the next record that should be yielded from this join,
-         * or null if there are no more records to join.
+         * 返回从此连接中应该产生的下一个记录，
+         * 如果没有更多记录可连接则返回null。
          */
         private Record fetchNextRecord() {
             if (leftRecord == null) {
-                // The left source was empty, nothing to fetch
+                // 左源为空，无数据可获取
                 return null;
             }
+
             while(true) {
                 if (this.rightSourceIterator.hasNext()) {
-                    // there's a next right record, join it if there's a match
+                    // 存在下一个右记录，如果有匹配则进行连接
                     Record rightRecord = rightSourceIterator.next();
+
+                    // 进行匹配
                     if (compare(leftRecord, rightRecord) == 0) {
                         return leftRecord.concat(rightRecord);
                     }
                 } else if (leftSourceIterator.hasNext()){
-                    // there's no more right records but there's still left
-                    // records. Advance left and reset right
+                    // 没有更多的右记录但仍有左记录。
+                    // 推进左记录并重置右迭代器
                     this.leftRecord = leftSourceIterator.next();
                     this.rightSourceIterator.reset();
                 } else {
-                    // if you're here then there are no more records to fetch
+                    // 如果执行到这里说明没有更多记录可获取
                     return null;
                 }
             }

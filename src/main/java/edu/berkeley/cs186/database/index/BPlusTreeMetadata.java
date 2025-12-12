@@ -57,8 +57,14 @@ public class BPlusTreeMetadata {
      * (参见 Database#getIndexInfoSchema)。
      */
     public Record toRecord() {
-        return new Record(tableName, colName, order, partNum, rootPageNum,
-                keySchema.getTypeId().ordinal(), keySchema.getSizeInBytes(),
+        return new Record(
+                tableName,
+                colName,
+                order,
+                partNum,
+                rootPageNum,
+                keySchema.getTypeId().ordinal(),
+                keySchema.getSizeInBytes(),
                 height
         );
     }

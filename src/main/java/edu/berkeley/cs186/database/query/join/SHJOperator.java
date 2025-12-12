@@ -14,15 +14,13 @@ import edu.berkeley.cs186.database.table.Schema;
 import java.util.*;
 
 public class SHJOperator extends JoinOperator {
-    private int numBuffers;
-    private Run joinedRecords;
+    private int numBuffers;     // 缓冲区个数
+    private Run joinedRecords;  // 连接记录，被物化到一个临时表中
 
     /**
-     * This class represents a simple hash join. To join the two relations the
-     * class will attempt a single partitioning phase of the left records and
-     * then probe with all of the right records. It will fail if any of the
-     * partitions are larger than the B-2 pages of memory needed to construct
-     * the in memory hash table by throwing an IllegalArgumentException.
+     * 这个类表示一个简单的哈希连接。为了连接两个关系，
+     * 该类将尝试对左记录进行一次分区阶段，然后用所有右记录进行探测。
+     * 如果任何分区大于构建内存哈希表所需的B-2页内存，它将通过抛出IllegalArgumentException来失败。
      */
     public SHJOperator(QueryOperator leftSource,
                        QueryOperator rightSource,
@@ -37,8 +35,7 @@ public class SHJOperator extends JoinOperator {
 
     @Override
     public int estimateIOCost() {
-        // Since this has a chance of failing on certain inputs we give it the
-        // maximum possible cost to encourage the optimizer to avoid it
+        // 由于这有可能在某些输入上失败，我们给它最大可能的成本以让优化器避免使用它
         return Integer.MAX_VALUE;
     }
 
@@ -48,8 +45,7 @@ public class SHJOperator extends JoinOperator {
     @Override
     public BacktrackingIterator<Record> backtrackingIterator() {
         if (joinedRecords == null) {
-            // Accumulate all of our joined records in this run and return an
-            // iterator over it once the algorithm completes
+            // 在这个运行中累积我们所有的连接记录，一旦算法完成就返回它的迭代器
             this.joinedRecords = new Run(getTransaction(), getSchema());
             this.run(getLeftSource(), getRightSource(), 1);
         };
@@ -62,89 +58,100 @@ public class SHJOperator extends JoinOperator {
     }
 
     /**
-     * Partition stage. For every record in the left record iterator, hashes the
-     * value we are joining on and adds that record to the correct partition.
+     * 分区阶段。对于左记录迭代器中的每个记录，哈希我们要连接的值并将该记录添加到正确的分区。
      */
     private void partition(Partition[] partitions, Iterable<Record> leftRecords) {
         for (Record record: leftRecords) {
-            // Partition left records on the chosen column
+            // 根据所选列对左记录进行分区
             DataBox columnValue = record.getValue(getLeftColumnIndex());
             int hash = HashFunc.hashDataBox(columnValue, 1);
-            // modulo to get which partition to use
+            // 取模得到要使用的分区
             int partitionNum = hash % partitions.length;
-            if (partitionNum < 0)  // hash might be negative
+            if (partitionNum < 0)  // 哈希可能是负数
                 partitionNum += partitions.length;
             partitions[partitionNum].add(record);
         }
     }
 
     /**
-     * Builds the hash table using leftRecords and probes it with the records
-     * in rightRecords. Joins the matching records and returns them as the
-     * joinedRecords list.
+     * 使用leftRecords构建哈希表，并用rightRecords中的记录探测它。
+     * 连接匹配的记录并将其作为joinedRecords列表返回。
      *
-     * @param partition a partition
-     * @param rightRecords An iterable of records from the right relation
+     * @param partition 一个分区
+     * @param rightRecords 右关系中的记录可迭代对象
      */
     private void buildAndProbe(Partition partition, Iterable<Record> rightRecords) {
+        // 一个页面用于流式加载 右表数据
+        // 一个页面用于输出到 RUN
+        // B - 2 个页面 用于加载 Partition 到内存的Hash表
+
         if (partition.getNumPages() > this.numBuffers - 2) {
             throw new IllegalArgumentException(
-                    "The records in this partition cannot fit in B-2 pages of memory."
+                    "此分区中的记录无法适应B-2页内存。"
             );
         }
 
-        // Our hash table to build on. The list contains all the records in the
-        // left records that hash to the same key
+        // 我们要构建的哈希表。列表包含所有哈希到相同键的左记录
         Map<DataBox, List<Record>> hashTable = new HashMap<>();
 
-        // Building stage
+        // 构建阶段
         for (Record leftRecord: partition) {
+            // 获取左记录的连接值
             DataBox leftJoinValue = leftRecord.getValue(this.getLeftColumnIndex());
+
+            // 创建一个 Hash Bin
             if (!hashTable.containsKey(leftJoinValue)) {
                 hashTable.put(leftJoinValue, new ArrayList<>());
             }
+
+            // 把记录添加到对应的 Hash Bin
             hashTable.get(leftJoinValue).add(leftRecord);
         }
 
-        // Probing stage
+        // 探测阶段, 流式加载右表数据，将连接的结果写入 Run
         for (Record rightRecord: rightRecords) {
+
+            // 获取右记录的连接值
             DataBox rightJoinValue = rightRecord.getValue(getRightColumnIndex());
+
+            // 如果没有匹配的键，则跳过
             if (!hashTable.containsKey(rightJoinValue)) continue;
-            // We have to join the right record with each left record with
-            // a matching key
+
+
+            // 我们必须将右记录与每个具有匹配键的左记录连接
+            // 遍历对应的 Hash Bin
             for (Record lRecord : hashTable.get(rightJoinValue)) {
                 Record joinedRecord = lRecord.concat(rightRecord);
-                // Accumulate joined records in this.joinedRecords
+                // 在this.joinedRecords中累积连接的记录
                 this.joinedRecords.add(joinedRecord);
             }
         }
     }
 
     /**
-     * Runs the simple hash join algorithm. First, run the partitioning stage to
-     * create an array of partitions. Then, build and probe with each hash
-     * partitions records.
+     * 运行简单哈希连接算法。首先，运行分区阶段创建分区数组。
+     * 然后，使用每个哈希分区记录进行构建和探测。
      */
     private void run(Iterable<Record> leftRecords, Iterable<Record> rightRecords, int pass) {
         assert pass >= 1;
-        if (pass > 5) throw new IllegalStateException("Reached the max number of passes");
+        if (pass > 5) throw new IllegalStateException("已达到最大传递次数");
 
-        // Create empty partitions
+        // 创建空分区
         Partition[] partitions = createPartitions();
 
-        // Partition records into left and right
+        // Pass1 将左边的记录进行分区
         this.partition(partitions, leftRecords);
 
+        // Pass2 分别加载每个分区，和右表所有记录进行连接
         for (int i = 0; i < partitions.length; i++) {
             buildAndProbe(partitions[i], rightRecords);
         }
     }
 
     /**
-     * Create an appropriate number of partitions relative to the number of
-     * available buffers we have and return an array
-     *
-     * @return an array of Partitions
+     * 根据我们拥有的可用缓冲区数量创建适当数量的分区并返回数组
+     * N = B - 1
+     * @return 分区数组
      */
     private Partition[] createPartitions() {
         int usableBuffers = this.numBuffers - 1;

@@ -717,10 +717,10 @@ public class QueryPlan {
         return this.executeNaive(); // TODO(proj3_part2): Replace this!
     }
 
+
     // 执行简单查询 ///////////////////////////////////////////////////////////
     // 以下函数用于生成简单的查询计划。您可以参考它们获取指导，
     // 但在实现自己的 execute 函数时不需要使用这些方法。
-
     /**
      * 给定一个没有连接的单表简单查询，例如：
      *      SELECT * FROM table WHERE table.column >= 186;
@@ -731,9 +731,13 @@ public class QueryPlan {
      * @return 如果未找到符合条件的选择谓词则返回 -1，否则返回符合条件的选择谓词的索引。
      */
     private int getEligibleIndexColumnNaive() {
+        // 检查查询中是否有 group by 或 join
         boolean hasGroupBy = this.groupByColumns.size() > 0;
         boolean hasJoin = this.joinPredicates.size() > 0;
+        // 如果有就不是简单查询
         if (hasGroupBy || hasJoin) return -1;
+
+        // 确定选择谓词
         for (int i = 0; i < selectPredicates.size(); i++) {
             // 对于每个选择谓词，检查我们是否在谓词的列上有索引。
             // 如果谓词操作符是我们可以执行扫描的操作符（=, >=, >, <=, <），
@@ -755,6 +759,7 @@ public class QueryPlan {
      * @param indexPredicate 我们可以在索引扫描中使用的 select 谓词的索引。
      */
     private void generateIndexPlanNaive(int indexPredicate) {
+        // 创建索引扫描
         SelectPredicate predicate = this.selectPredicates.get(indexPredicate);
         this.finalOperator = new IndexScanOperator(
                 this.transaction, this.tableNames.get(0),
@@ -762,8 +767,12 @@ public class QueryPlan {
                 predicate.operator,
                 predicate.value
         );
+
+        // 删除该选择谓词
         this.selectPredicates.remove(indexPredicate);
+        // 加入选择算子
         this.addSelectsNaive();
+        // 加入投影算子
         this.addProject();
     }
 
@@ -772,12 +781,21 @@ public class QueryPlan {
      * 接着是所有选择谓词，可选的 group by 操作符，可选的 project 操作符，
      * 可选的 sort 操作符和可选的 limit 操作符（按此顺序）。
      *
+     * - Scan
+     * - Join
+     * - Where
+     * - Group by
+     * - Project
+     * - Sort
+     * - Limit
+     *
      * @return 作为此查询结果的记录迭代器
      */
     public Iterator<Record> executeNaive() {
         this.transaction.setAliasMap(this.aliases);
         int indexPredicate = this.getEligibleIndexColumnNaive();
         if (indexPredicate != -1) {
+            // 如果有索引，就生成一个简单的索引计划
             this.generateIndexPlanNaive(indexPredicate);
         } else {
             // 从第一个表的扫描开始

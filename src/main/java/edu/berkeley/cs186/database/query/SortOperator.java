@@ -25,7 +25,7 @@ public class SortOperator extends QueryOperator {
         this.numBuffers = this.transaction.getWorkMemSize();
         this.sortColumnIndex = getSchema().findField(columnName);
         this.sortColumnName = getSchema().getFieldName(this.sortColumnIndex);
-        this.comparator = new RecordComparator();
+        this.comparator = new RecordComparator(); // 默认比较器，用于比较排序字段
     }
 
     private class RecordComparator implements Comparator<Record> {
@@ -85,7 +85,16 @@ public class SortOperator extends QueryOperator {
      */
     public Run sortRun(Iterator<Record> records) {
         // TODO(proj3_part1): implement
-        return null;
+        // 1. 读取B页数据，并进行内存中排序
+        BacktrackingIterator<Record> blockIterator = QueryOperator.getBlockIterator(records, getSchema(), numBuffers);
+        List<Record> list = new ArrayList<>();
+        blockIterator.forEachRemaining(list::add);
+
+        // 排序
+        list.sort(comparator);
+
+        // 2. 输出到临时文件
+        return makeRun(list);
     }
 
     /**
@@ -102,7 +111,38 @@ public class SortOperator extends QueryOperator {
     public Run mergeSortedRuns(List<Run> runs) {
         assert (runs.size() <= this.numBuffers - 1);
         // TODO(proj3_part1): implement
-        return null;
+        // 内存中的优先队列，用于接收多个有序段合并为一个大的
+        Run run = makeRun();
+        PriorityQueue<Pair<Record, Integer>> priorityQueue = new PriorityQueue<>(runs.size(), new RecordPairComparator());
+
+        // 获取所有Run的迭代器
+        List<BacktrackingIterator<Record>> iterators = new ArrayList<>();
+        for (Run runItem : runs) {
+            iterators.add(runItem.iterator());
+        }
+
+        // 初始化优先队列，每个Run的第一个元素入队
+        for (int i = 0; i < iterators.size(); i++) {
+            if (iterators.get(i).hasNext()) {
+                priorityQueue.offer(new Pair<>(iterators.get(i).next(), i));
+            }
+        }
+
+        // 合并过程：不断从优先队列取出最小元素，并将该元素所在Run的下一个元素入队
+        while (!priorityQueue.isEmpty()) {
+            Pair<Record, Integer> pair = priorityQueue.poll();
+            run.add(pair.getFirst());
+
+            // 如果该元素所在的Run还有下一个元素，则将其入队
+            if (iterators.get(pair.getSecond()).hasNext()) {
+                priorityQueue.offer(new Pair<>(
+                        iterators.get(pair.getSecond()).next(),
+                        pair.getSecond()
+                ));
+            }
+        }
+
+        return run;
     }
 
     /**
@@ -125,7 +165,24 @@ public class SortOperator extends QueryOperator {
      */
     public List<Run> mergePass(List<Run> runs) {
         // TODO(proj3_part1): implement
-        return Collections.emptyList();
+        if (runs.isEmpty()) return Collections.emptyList();
+        int batchSize = numBuffers - 1;
+        if (runs.size() <= numBuffers - 1) {
+            return Collections.singletonList(mergeSortedRuns(runs));
+        }
+
+        // 每次处理(numBuffers - 1)个Run
+        List<Run> result = new ArrayList<>();
+        for (int i = 0; i < runs.size(); i += batchSize) {
+            // 计算本次处理的范围
+            int fromIndex = i;
+            int toIndex = Math.min(i + batchSize, runs.size());
+
+            // 合并这一批Run并加入结果列表
+            result.add(mergeSortedRuns(runs.subList(fromIndex, toIndex)));
+        }
+
+        return result;
     }
 
     /**
@@ -140,7 +197,19 @@ public class SortOperator extends QueryOperator {
         Iterator<Record> sourceIterator = getSource().iterator();
 
         // TODO(proj3_part1): implement
-        return makeRun(); // TODO(proj3_part1): replace this!
+        // Pass 0  创建初始的排序段 一次可以从内存中加载 B 页数据排序然后输出到Run
+        List<Run> runs = new ArrayList<>();
+        while (sourceIterator.hasNext()) {
+            runs.add(sortRun(sourceIterator));
+        }
+
+        // Pass 1, 2, ...: 多轮合并直到只剩一个Run
+        while (runs.size() > 1) {
+            runs = mergePass(runs);
+        }
+
+        // 返回最终的一个大的排序段
+        return runs.get(0);
     }
 
     /**

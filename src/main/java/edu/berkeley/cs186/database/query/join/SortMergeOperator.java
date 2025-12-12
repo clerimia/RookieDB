@@ -19,41 +19,54 @@ public class SortMergeOperator extends JoinOperator {
                              String leftColumnName,
                              String rightColumnName,
                              TransactionContext transaction) {
-        super(prepareLeft(transaction, leftSource, leftColumnName),
-              prepareRight(transaction, rightSource, rightColumnName),
-              leftColumnName, rightColumnName, transaction, JoinType.SORTMERGE);
-        this.stats = this.estimateStats();
+        super(
+                prepareLeft(transaction, leftSource, leftColumnName),       // 预处理左边的操作符，让他有序
+                prepareRight(transaction, rightSource, rightColumnName),    // 预处理右边的操作符，让他有序
+                leftColumnName,
+                rightColumnName,
+                transaction,
+                JoinType.SORTMERGE
+        );
+        this.stats = this.estimateStats();  // 获取统计信息
     }
 
     /**
-     * If the left source is already sorted on the target column then this
-     * returns the leftSource, otherwise it wraps the left source in a sort
-     * operator.
+     * 如果左源已经在目标列上排序，则返回leftSource，否则将左源包装在排序操作符中。
      */
-    private static QueryOperator prepareLeft(TransactionContext transaction,
-                                             QueryOperator leftSource,
-                                             String leftColumn) {
+    private static QueryOperator prepareLeft(
+            TransactionContext transaction,
+            QueryOperator leftSource,
+            String leftColumn
+    ) {
+        // 获取连接字段名
         leftColumn = leftSource.getSchema().matchFieldName(leftColumn);
-        if (leftSource.sortedBy().contains(leftColumn)) return leftSource;
+        // 看左源操作符是否在该字段上有序，如果有序直接返回
+        if (leftSource.sortedBy().contains(leftColumn)) {
+            return leftSource;
+        }
+        // 如果无序，包装一个排序操作符
         return new SortOperator(transaction, leftSource, leftColumn);
     }
 
     /**
-     * If the right source isn't sorted, wraps the right source in a sort
-     * operator. Otherwise, if it isn't materialized, wraps the right source in
-     * a materialize operator. Otherwise, simply returns the right source. Note
-     * that the right source must be materialized since we may need to backtrack
-     * over it, unlike the left source.
+     * 如果右源未排序，则将其包装在排序操作符中。
+     * 否则，如果它未物化，则将其包装在物化操作符中。
+     * 否则，直接返回右源。注意右源必须被物化，因为我们可能需要回溯它，而左源不需要。
      */
     private static QueryOperator prepareRight(TransactionContext transaction,
                                               QueryOperator rightSource,
                                               String rightColumn) {
+        // 获取连接字段
         rightColumn = rightSource.getSchema().matchFieldName(rightColumn);
+
+        // 看右源操作符是否已排序，如果未排序，就包装一层排序操作符
         if (!rightSource.sortedBy().contains(rightColumn)) {
             return new SortOperator(transaction, rightSource, rightColumn);
         } else if (!rightSource.materialized()) {
+            // 如果排序了，但是没有物化，也就是无法回溯，就包装一层物化操作符
             return new MaterializeOperator(rightSource, transaction);
         }
+        // 如果排序且物化，就直接返回
         return rightSource;
     }
 
@@ -69,27 +82,27 @@ public class SortMergeOperator extends JoinOperator {
 
     @Override
     public int estimateIOCost() {
-        //does nothing
+        //什么都不做
         return 0;
     }
 
     /**
-     * An implementation of Iterator that provides an iterator interface for this operator.
-     *    See lecture slides.
+     * Iterator的一个实现，为该操作符提供迭代器接口。
+     *    参见课件幻灯片。
      *
-     * Before proceeding, you should read and understand SNLJOperator.java
-     *    You can find it in the same directory as this file.
+     * 在继续之前，你应该阅读并理解SNLJOperator.java
+     *    你可以在与本文件相同的目录中找到它。
      *
-     * Word of advice: try to decompose the problem into distinguishable sub-problems.
-     *    This means you'll probably want to add more methods than those given (Once again,
-     *    SNLJOperator.java might be a useful reference).
+     * 建议：尝试将问题分解为可区分的子问题。
+     *    这意味着你可能需要添加比给定更多的方法（再次提醒，
+     *    SNLJOperator.java可能是一个有用的参考）。
      *
      */
     private class SortMergeIterator implements Iterator<Record> {
         /**
-        * Some member variables are provided for guidance, but there are many possible solutions.
-        * You should implement the solution that's best for you, using any member variables you need.
-        * You're free to use these member variables, but you're not obligated to.
+        * 提供了一些成员变量作为指导，但有很多可能的解决方案。
+        * 你应该实现最适合你的解决方案，使用任何你需要的成员变量。
+        * 你可以自由使用这些成员变量，但不是必须使用。
         */
         private Iterator<Record> leftIterator;
         private BacktrackingIterator<Record> rightIterator;
@@ -98,6 +111,10 @@ public class SortMergeOperator extends JoinOperator {
         private Record rightRecord;
         private boolean marked;
 
+        /**
+         * 左表的迭代器一直是往前走的，
+         * 但是右表的迭代器需要回溯，所以需要物化
+         * */
         private SortMergeIterator() {
             super();
             leftIterator = getLeftSource().iterator();
@@ -113,8 +130,7 @@ public class SortMergeOperator extends JoinOperator {
         }
 
         /**
-         * @return true if this iterator has another record to yield, otherwise
-         * false
+         * @return 如果此迭代器还有另一个要产生的记录，则返回true，否则返回false
          */
         @Override
         public boolean hasNext() {
@@ -123,8 +139,8 @@ public class SortMergeOperator extends JoinOperator {
         }
 
         /**
-         * @return the next record from this iterator
-         * @throws NoSuchElementException if there are no more records to yield
+         * @return 此迭代器的下一个记录
+         * @throws NoSuchElementException 如果没有更多记录可产生
          */
         @Override
         public Record next() {
@@ -135,11 +151,11 @@ public class SortMergeOperator extends JoinOperator {
         }
 
         /**
-         * Returns the next record that should be yielded from this join,
-         * or null if there are no more records to join.
+         * 返回应该从此连接中产生的下一条记录，
+         * 如果没有更多记录要连接，则返回null。
          */
         private Record fetchNextRecord() {
-            // TODO(proj3_part1): implement
+            // TODO(proj3_part1): 实现
             return null;
         }
 
