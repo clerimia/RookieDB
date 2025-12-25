@@ -16,14 +16,14 @@ import static org.junit.Assert.*;
 
 @Category({Proj4Tests.class, Proj4Part1Tests.class})
 public class TestLockType {
-    // 200ms per test
+    // 每个测试200毫秒
     @Rule
     public TestRule globalTimeout = new DisableOnDebug(Timeout.millis((long) (
             200 * TimeoutScaling.factor)));
 
     /**
-     * Compatibility Matrix
-     * (Boolean value in cell answers is `left` compatible with `top`?)
+     * 兼容性矩阵
+     * (单元格中的布尔值回答'左边的锁'是否与'顶部的锁'兼容？)
      *
      *     | NL  | IS  | IX  |  S  | SIX |  X
      * ----+-----+-----+-----+-----+-----+-----
@@ -40,15 +40,15 @@ public class TestLockType {
      * X   |  T  |     |     |  F  |     |  F
      * ----+-----+-----+-----+-----+-----+-----
      *
-     * The filled in cells are covered by the public tests.
-     * You can expect the blank cells to be covered by the hidden tests!
-     * Hint: I bet the notes might have something useful for this...
+     * 已填充的单元格由公共测试覆盖。
+     * 你可以期待空白单元格由隐藏测试覆盖！
+     * 提示：我打赌笔记中可能有一些有用的内容...
      */
 
     @Test
     @Category(PublicTests.class)
     public void testCompatibleNL() {
-        // NL should be compatible with every lock type
+        // NL 应该与每种锁类型兼容
         assertTrue(LockType.compatible(LockType.NL, LockType.NL));
         assertTrue(LockType.compatible(LockType.NL, LockType.S));
         assertTrue(LockType.compatible(LockType.NL, LockType.X));
@@ -65,12 +65,12 @@ public class TestLockType {
     @Test
     @Category(PublicTests.class)
     public void testCompatibleS() {
-        // S is compatible with S, and IS
+        // S 与 S 和 IS 兼容
         assertTrue(LockType.compatible(LockType.S, LockType.S));
         assertTrue(LockType.compatible(LockType.S, LockType.IS));
         assertTrue(LockType.compatible(LockType.IS, LockType.S));
 
-        // S is incompatible with X, IX, and SIX
+        // S 与 X、IX 和 SIX 不兼容
         assertFalse(LockType.compatible(LockType.S, LockType.X));
         assertFalse(LockType.compatible(LockType.S, LockType.IX));
         assertFalse(LockType.compatible(LockType.S, LockType.SIX));
@@ -82,7 +82,7 @@ public class TestLockType {
     @Test
     @Category(PublicTests.class)
     public void testCompatibleIntent() {
-        // Intent locks are compatible with each other
+        // 意图锁相互兼容
         assertTrue(LockType.compatible(LockType.IS, LockType.IS));
         assertTrue(LockType.compatible(LockType.IS, LockType.IX));
         assertTrue(LockType.compatible(LockType.IX, LockType.IS));
@@ -92,15 +92,15 @@ public class TestLockType {
     @Test
     @Category(PublicTests.class)
     public void testCompatibleXandX() {
-        // X locks are incompatible with X locks
+        // X 锁与 X 锁不兼容
         assertFalse(LockType.compatible(LockType.X, LockType.X));
     }
 
     @Test
     @Category(SystemTests.class)
     public void testParent() {
-        // This is an exhaustive test of what we expect from LockType.parentLock
-        // for valid lock types
+        // 这是一个对 LockType.parentLock 的详尽测试
+        // 针对有效的锁类型
         assertEquals(LockType.NL, LockType.parentLock(LockType.NL));
         assertEquals(LockType.IS, LockType.parentLock(LockType.S));
         assertEquals(LockType.IX, LockType.parentLock(LockType.X));
@@ -110,8 +110,8 @@ public class TestLockType {
     }
 
     /**
-     * Parent Matrix
-     * (Boolean value in cell answers can `left` be the parent of `top`?)
+     * 父锁矩阵
+     * (单元格中的布尔值回答'左边的锁'是否可以是'顶部的锁'的父锁？)
      *
      *     | NL  | IS  | IX  |  S  | SIX |  X
      * ----+-----+-----+-----+-----+-----+-----
@@ -128,19 +128,19 @@ public class TestLockType {
      * X   |  T  |     |     |     |     |
      * ----+-----+-----+-----+-----+-----+-----
      *
-     * The filled in cells are covered by the public test.
-     * You can expect the blank cells to be covered by the hidden tests!
+     * 已填充的单元格由公共测试覆盖。
+     * 你可以期待空白单元格由隐藏测试覆盖！
      */
 
     @Test
     @Category(PublicTests.class)
     public void testCanBeParentNL() {
-        // Any lock type can be parent of NL
+        // 任何锁类型都可以是 NL 的父锁
         for (LockType lockType : LockType.values()) {
             assertTrue(LockType.canBeParentLock(lockType, LockType.NL));
         }
 
-        // The only lock type that can be a child of NL is NL
+        // 唯一可以是 NL 子锁的锁类型是 NL
         for (LockType lockType : LockType.values()) {
             if (lockType != LockType.NL) {
                 assertFalse(LockType.canBeParentLock(LockType.NL, lockType));
@@ -151,7 +151,7 @@ public class TestLockType {
     @Test
     @Category(PublicTests.class)
     public void testIXParent() {
-        // IX can be the parent of any type of lock
+        // IX 可以是任何类型锁的父锁
         for (LockType childType : LockType.values()) {
             assertTrue(LockType.canBeParentLock(LockType.IX, childType));
         }
@@ -160,20 +160,20 @@ public class TestLockType {
     @Test
     @Category(PublicTests.class)
     public void testISParent() {
-        // IS can be the parent of IS, S, and NL
+        // IS 可以是 IS、S 和 NL 的父锁
         assertTrue(LockType.canBeParentLock(LockType.IS, LockType.IS));
         assertTrue(LockType.canBeParentLock(LockType.IS, LockType.S));
         assertTrue(LockType.canBeParentLock(LockType.IS, LockType.NL));
 
-        // IS cannot be the parent of IX, X, or SIX
+        // IS 不能是 IX、X 或 SIX 的父锁
         assertFalse(LockType.canBeParentLock(LockType.IS, LockType.IX));
         assertFalse(LockType.canBeParentLock(LockType.IS, LockType.X));
         assertFalse(LockType.canBeParentLock(LockType.IS, LockType.SIX));
     }
 
     /**
-     * Substitutability Matrix
-     * (Values along left are `substitute`, values along top are `required`)
+     * 替换矩阵
+     * (左边的值是`替代锁`，顶部的值是`必需锁`)
      *
      *     | NL  | IS  | IX  |  S  | SIX |  X
      * ----+-----+-----+-----+-----+-----+-----
@@ -190,20 +190,20 @@ public class TestLockType {
      * X   |     |     |     |  T  |     |  T
      * ----+-----+-----+-----+-----+-----+-----
      *
-     * The filled in cells are covered by the public test.
-     * You can expect the blank cells to be covered by the hidden tests!
+     * 已填充的单元格由公共测试覆盖。
+     * 你可以期待空白单元格由隐藏测试覆盖！
      *
-     * The boolean value in the cell answers the question:
-     * "Can `left` substitute `top`?"
+     * 单元格中的布尔值回答以下问题：
+     * "左边的锁是否可以替代顶部的锁？"
      *
-     * or alternatively:
-     * "Are the privileges of `left` a superset of those of `top`?"
+     * 或者：
+     * "左边锁的权限是否是顶部锁权限的超集？"
      */
 
     @Test
     @Category(PublicTests.class)
     public void testNLSubstitute() {
-        // You can't substitute anything with NL, other than NL
+        // 除了 NL 之外，你不能用 NL 替换任何其他锁
         assertTrue(LockType.substitutable(LockType.NL, LockType.NL));
         assertFalse(LockType.substitutable(LockType.NL, LockType.S));
         assertFalse(LockType.substitutable(LockType.NL, LockType.X));
@@ -215,36 +215,36 @@ public class TestLockType {
     @Test
     @Category(PublicTests.class)
     public void testSubstitutableReal() {
-        // You cannot substitute S with IS or IX
+        // 你不能用 IS 或 IX 替换 S
         assertFalse(LockType.substitutable(LockType.IS, LockType.S));
         assertFalse(LockType.substitutable(LockType.IX, LockType.S));
 
-        // You can substitute S with S, SIX, or X
+        // 你可以用 S、SIX 或 X 替换 S
         assertTrue(LockType.substitutable(LockType.S, LockType.S));
         assertTrue(LockType.substitutable(LockType.SIX, LockType.S));
         assertTrue(LockType.substitutable(LockType.X, LockType.S));
 
-        // You cannot substitute X with IS, IX, S, or SIX
+        // 你不能用 IS、IX、S 或 SIX 替换 X
         assertFalse(LockType.substitutable(LockType.IS, LockType.X));
         assertFalse(LockType.substitutable(LockType.IX, LockType.X));
         assertFalse(LockType.substitutable(LockType.S, LockType.X));
         assertFalse(LockType.substitutable(LockType.SIX, LockType.X));
 
-        // You can substitute X with X
+        // 你可以用 X 替换 X
         assertTrue(LockType.substitutable(LockType.X, LockType.X));
     }
 
     @Test
     @Category(PublicTests.class)
     public void testSubstitutableIXandIS() {
-        // You can substitute intent locks with themselves
+        // 你可以用意图锁替换它们自己
         assertTrue(LockType.substitutable(LockType.IS, LockType.IS));
         assertTrue(LockType.substitutable(LockType.IX, LockType.IX));
 
-        // IX's privileges are a superset of IS's privileges
+        // IX 的权限是 IS 权限的超集
         assertTrue(LockType.substitutable(LockType.IX, LockType.IS));
 
-        // IS's privileges are not a superset of IX's privileges
+        // IS 的权限不是 IX 权限的超集
         assertFalse(LockType.substitutable(LockType.IS, LockType.IX));
     }
 

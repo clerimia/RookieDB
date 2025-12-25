@@ -117,15 +117,20 @@ public class SortMergeOperator extends JoinOperator {
          * */
         private SortMergeIterator() {
             super();
+            // 左源迭代器
             leftIterator = getLeftSource().iterator();
+            // 右源回溯迭代器
             rightIterator = getRightSource().backtrackingIterator();
+            // 标记回溯点
             rightIterator.markNext();
 
+            // 获取第一个记录
             if (leftIterator.hasNext() && rightIterator.hasNext()) {
                 leftRecord = leftIterator.next();
                 rightRecord = rightIterator.next();
             }
 
+            // 默认没有标记
             this.marked = false;
         }
 
@@ -156,7 +161,75 @@ public class SortMergeOperator extends JoinOperator {
          */
         private Record fetchNextRecord() {
             // TODO(proj3_part1): 实现
+            while (leftRecord != null && rightRecord != null) {
+                int compareResult = compare(leftRecord, rightRecord);
+
+                // 还没有到匹配段
+                if (!marked) {
+                    // 寻找匹配段的开始位置
+                    if (compareResult < 0) {
+                        // 左记录小于右记录，移动左迭代器
+                        if (leftIterator.hasNext()) {
+                            leftRecord = leftIterator.next();
+                        } else {
+                            leftRecord = null;
+                        }
+                    } else if (compareResult > 0) {
+                        // 左记录大于右记录，移动右迭代器
+                        if (rightIterator.hasNext()) {
+                            rightRecord = rightIterator.next();
+                        } else {
+                            rightRecord = null;
+                        }
+                    } else {
+                        // 找到匹配段，标记当前位置
+                        marked = true;
+                        rightIterator.markPrev();
+                    }
+                } else {
+                    // 处理匹配段
+                    if (compareResult == 0) {
+                        // 记录匹配，创建连接结果
+                        Record joinRecord = leftRecord.concat(rightRecord);
+
+                        // 移动右迭代器
+                        if (rightIterator.hasNext()) {
+                            rightRecord = rightIterator.next();
+                        } else {
+                            // 右迭代器到达末尾，重新标记并移动左迭代器
+                            remark();
+                        }
+
+                        return joinRecord;
+                    } else {
+                        // 当前匹配段结束，重新标记并继续
+                        remark();
+                    }
+                }
+            }
+
             return null;
+        }
+
+        /**
+         * 回溯右迭代器并尝试推进左迭代器
+         * 当右表遍历完一轮或当前左右记录不匹配时调用此方法
+         */
+        private void remark() {
+            // 重置右迭代器到标记位置（相同值段的开始）
+            rightIterator.reset();
+            // 获取右表当前值段的第一条记录
+            rightRecord = rightIterator.next();
+
+            // 尝试推进左迭代器到下一条记录
+            if (leftIterator.hasNext()) {
+                // 获取左表的下一条记录并清除标记状态
+                leftRecord = leftIterator.next();
+                marked = false;
+            } else {
+                // 左表已遍历完毕，整个连接操作结束
+                leftRecord = null;
+            }
         }
 
         @Override

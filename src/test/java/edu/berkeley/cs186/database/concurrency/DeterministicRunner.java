@@ -5,8 +5,8 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * A utility class for running code over multiple threads, in a specific order. Any
- * exceptions/errors thrown in a child thread are rethrown in the main thread.
+ * 一个用于按特定顺序在多个线程上运行代码的工具类。在子线程中抛出的任何
+ * 异常/错误都会在主线程中重新抛出。
  */
 public class DeterministicRunner {
     private final Worker[] workers;

@@ -27,14 +27,13 @@ public class TestLockManager {
     private ResourceName dbResource;
     private ResourceName[] tables;
 
-    // 2 seconds per test
+    // 每个测试2秒
     @Rule
     public TestRule globalTimeout = new DisableOnDebug(Timeout.millis((long) (
                 2000 * TimeoutScaling.factor)));
 
     /**
-     * Given a LockManager lockman, checks if transaction holds a Lock specified
-     * by type on the resource specified by name
+     * 给定一个LockManager lockman，检查事务是否在指定名称的资源上持有指定类型的锁
      */
     static boolean holds(LockManager lockman, TransactionContext transaction, ResourceName name,
                          LockType type) {
@@ -52,8 +51,8 @@ public class TestLockManager {
 
     @Before
     public void setUp() {
-        // Sets up a LockManager, 8 possible transactions, a database resource
-        // and 8 possible tables for use in tests
+        // 设置一个LockManager，8个可能的事务，一个数据库资源
+        // 和8个用于测试的表
         lockman = new LoggingLockManager();
         transactions = new TransactionContext[8];
         dbResource = new ResourceName("database");
@@ -68,24 +67,24 @@ public class TestLockManager {
     @Category(PublicTests.class)
     public void testSimpleAcquireLock() {
         /**
-         * Transaction 0 acquires an S lock on table0
-         * Transaction 1 acquires an X lock on table1
+         * 事务0获取table0上的S锁
+         * 事务1获取table1上的X锁
          */
         DeterministicRunner runner = new DeterministicRunner(2);
         runner.run(0, () -> lockman.acquire(transactions[0], tables[0], LockType.S));
         runner.run(1, () -> lockman.acquire(transactions[1], tables[1], LockType.X));
 
-        // Transaction 0 should have an S lock on table0
+        // 事务0应该在table0上有一个S锁
         assertEquals(LockType.S, lockman.getLockType(transactions[0], tables[0]));
 
-        // table0 should only have an S lock from Transaction 0
+        // table0应该只从事务0有一个S锁
         List<Lock> expectedTable0Locks = Collections.singletonList(new Lock(tables[0], LockType.S, 0L));
         assertEquals(expectedTable0Locks, lockman.getLocks(tables[0]));
 
-        // Transaction 1 should have an X lock on table1
+        // 事务1应该在table1上有一个X锁
         assertEquals(LockType.X, lockman.getLockType(transactions[1], tables[1]));
 
-        // table1 should only have an X lock from Transaction 1
+        // table1应该只从事务1有一个X锁
         List<Lock>expectedTable1Locks = Collections.singletonList(new Lock(tables[1], LockType.X, 1L));
         assertEquals(expectedTable1Locks, lockman.getLocks(tables[1]));
 
@@ -98,15 +97,14 @@ public class TestLockManager {
         DeterministicRunner runner = new DeterministicRunner(1);
         TransactionContext t0 = transactions[0];
 
-        // Transaction 0 acquires an X lock on dbResource
+        // 事务0获取dbResource上的X锁
         runner.run(0, () -> lockman.acquire(t0, dbResource, LockType.X));
         try {
-            // Transaction 0 attempts to acquire another X lock on dbResource
+            // 事务0尝试在dbResource上获取另一个X锁
             runner.run(0, () -> lockman.acquire(t0, dbResource, LockType.X));
-            fail("Attempting to acquire a duplicate lock should throw a " +
-                    "DuplicateLockRequestException.");
+            fail("尝试获取重复锁应该抛出DuplicateLockRequestException。");
         } catch (DuplicateLockRequestException e) {
-            // do nothing
+            // 不做任何操作
         }
 
         runner.joinAll();
@@ -116,8 +114,8 @@ public class TestLockManager {
     @Category(PublicTests.class)
     public void testSimpleReleaseLock() {
         /**
-         * Transaction 0 acquires an X lock on dbResource
-         * Transaction 0 releases its lock on dbResource
+         * 事务0获取dbResource上的X锁
+         * 事务0释放其在dbResource上的锁
          */
         DeterministicRunner runner = new DeterministicRunner(1);
         runner.run(0, () -> {
@@ -125,10 +123,10 @@ public class TestLockManager {
             lockman.release(transactions[0], dbResource);
         });
 
-        // Transaction 0 should have no lock on dbResource
+        // 事务0在dbResource上应该没有锁
         assertEquals(LockType.NL, lockman.getLockType(transactions[0], dbResource));
 
-        // There should be no locks on dbResource
+        // dbResource上应该没有锁
         assertEquals(Collections.emptyList(), lockman.getLocks(dbResource));
 
         runner.joinAll();
@@ -142,10 +140,9 @@ public class TestLockManager {
         TransactionContext t1 = transactions[0];
         try {
             runner.run(0, () -> lockman.release(t1, dbResource));
-            fail("Releasing a lock on a resource you don't hold a lock on " +
-                    "should throw a NoLockHeldException");
+            fail("释放你没有持有的资源上的锁应该抛出NoLockHeldException");
         } catch (NoLockHeldException e) {
-            // do nothing
+            // 不做任何操作
         }
 
         runner.joinAll();
@@ -155,63 +152,62 @@ public class TestLockManager {
     @Category(PublicTests.class)
     public void testSimpleConflict() {
         /**
-         * Transaction 0 acquires an X lock on dbResource
-         * Transaction 1 attempts to acquire an X lock on dbResource but
-         *   blocks due to a conflict with Transaction 0's X lock
+         * 事务0获取dbResource上的X锁
+         * 事务1尝试获取dbResource上的X锁，但由于与事务0的X锁冲突而被阻塞
          *
-         * After this:
-         *   Transaction 0 should have an X lock on dbResource
-         *   Transaction 1 should have no lock on dbResource
-         *   Transaction 0 should not be blocked
-         *   Transaction 1 should be blocked (waiting to acquire an X lock on dbResource)
+         * 在这之后：
+         *   事务0应该在dbResource上有一个X锁
+         *   事务1在dbResource上应该没有锁
+         *   事务0不应该被阻塞
+         *   事务1应该被阻塞（等待获取dbResource上的X锁）
          */
         DeterministicRunner runner = new DeterministicRunner(2);
         runner.run(0, () -> lockman.acquire(transactions[0], dbResource, LockType.X));
         runner.run(1, () -> lockman.acquire(transactions[1], dbResource, LockType.X));
 
-        // Lock checks
+        // 锁检查
         assertEquals(LockType.X, lockman.getLockType(transactions[0], dbResource));
         assertEquals(LockType.NL, lockman.getLockType(transactions[1], dbResource));
         List<Lock> expectedDbLocks = Collections.singletonList(new Lock(dbResource, LockType.X, 0L));
         assertEquals(expectedDbLocks, lockman.getLocks(dbResource));
 
-        // Block checks
+        // 阻塞检查
         assertFalse(transactions[0].getBlocked());
         assertTrue(transactions[1].getBlocked());
 
         /**
-         * Transaction 0 releases its lock on dbResource
-         * Transaction 1 should unblock, and acquire an X lock on dbResource
+         * 事务0释放其在dbResource上的锁
+         * 事务1应该解除阻塞，并获取dbResource上的X锁
          *
-         * After this:
-         *   Transaction 0 should have no lock on dbResource
-         *   Transaction 1 should have an X lock dbResource
-         *   Both transactions should be unblocked
+         * 在这之后：
+         *   事务0在dbResource上应该没有锁
+         *   事务1应该在dbResource上有一个X锁
+         *   两个事务都应该解除阻塞
          *
          */
         runner.run(0, () -> lockman.release(transactions[0], dbResource));
 
-        // Lock checks
+        // 锁检查
         assertEquals(LockType.NL, lockman.getLockType(transactions[0], dbResource));
         assertEquals(LockType.X, lockman.getLockType(transactions[1], dbResource));
         List<Lock> expectedDbLocks2 = Collections.singletonList(new Lock(dbResource, LockType.X, 1L));
         assertEquals(expectedDbLocks2, lockman.getLocks(dbResource));
 
-        // Block checks
+        // 阻塞检查
         assertFalse(transactions[0].getBlocked());
         assertFalse(transactions[1].getBlocked());
 
         runner.joinAll();
     }
 
-    // Tests below here are not required for the Spring 2021 Project 4 Part 1 deadline.
+    // 以下测试不是Spring 2021 Project 4 Part 1截止日期所必需的。
 
     @Test
     @Category(PublicTests.class)
     public void testSimpleAcquireRelease() {
         /**
-         * Transaction 0 acquires an S lock on table0
-         * Transaction 0 acquires an S lock on table1 and releases its lock on table0
+         * 事务0获取table0上的S锁
+         * 事务0获取table1上的S锁并释放其在table0上的锁
          */
         DeterministicRunner runner = new DeterministicRunner(1);
         runner.run(0, () -> {
@@ -219,16 +215,16 @@ public class TestLockManager {
             lockman.acquireAndRelease(transactions[0], tables[1], LockType.S, Collections.singletonList(tables[0]));
         });
 
-        // Transaction 0 should have no lock on table0
+        // 事务0在table0上应该没有锁
         assertEquals(LockType.NL, lockman.getLockType(transactions[0], tables[0]));
 
-        // table0 should have no locks on it from any transaction
+        // table0上应该没有任何事务的锁
         assertEquals(Collections.emptyList(), lockman.getLocks(tables[0]));
 
-        // Transaction 0 should have an S lock on table1
+        // 事务0应该在table1上有一个S锁
         assertEquals(LockType.S, lockman.getLockType(transactions[0], tables[1]));
 
-        // table1 should only have an S lock from Transaction 0
+        // table1应该只从事务0有一个S锁
         List<Lock> expectedTable1Locks = Collections.singletonList(new Lock(tables[1], LockType.S, 0L));
         assertEquals(expectedTable1Locks, lockman.getLocks(tables[1]));
 
@@ -239,10 +235,9 @@ public class TestLockManager {
     @Category(PublicTests.class)
     public void testAcquireReleaseQueue() {
         /**
-         * Transaction 0 acquires an X lock on table0
-         * Transaction 1 acquires an X lock on table1
-         * Transaction 0 attempts to acquire an X lock on table1 and
-         *     release its X lock on table0
+         * 事务0获取table0上的X锁
+         * 事务1获取table1上的X锁
+         * 事务0尝试获取table1上的X锁并释放其在table0上的X锁
          */
         DeterministicRunner runner = new DeterministicRunner(2);
         runner.run(0, () -> lockman.acquireAndRelease(transactions[0], tables[0], LockType.X,
@@ -252,21 +247,21 @@ public class TestLockManager {
         runner.run(0, () -> lockman.acquireAndRelease(transactions[0], tables[1], LockType.X,
                    Collections.singletonList(tables[0])));
 
-        // Transaction 0 should have an X lock on table0
+        // 事务0应该在table0上有一个X锁
         assertEquals(LockType.X, lockman.getLockType(transactions[0], tables[0]));
 
-        // table0 should only have have an X lock from Transaction 0
+        // table0应该只从事务0有一个X锁
         List<Lock> expectedTable0Locks = Collections.singletonList(new Lock(tables[0], LockType.X, 0L));
         assertEquals(expectedTable0Locks, lockman.getLocks(tables[0]));
 
-        // Transaction 0 should have no lock on table1
+        // 事务0在table1上应该没有锁
         assertEquals(LockType.NL, lockman.getLockType(transactions[0], tables[1]));
 
-        // table1 should only have an X lock from Transaction 1
+        // table1应该只从事务1有一个X锁
         List<Lock> expectedTable1Locks = Collections.singletonList(new Lock(tables[1], LockType.X, 1L));
         assertEquals(expectedTable1Locks, lockman.getLocks(tables[1]));
 
-        // Transaction 0 should still be blocked waiting to acquire an X lock on table1
+        // 事务0应该仍然被阻塞等待获取table1上的X锁
         assertTrue(transactions[0].getBlocked());
 
         runner.join(1);
@@ -275,18 +270,17 @@ public class TestLockManager {
     @Test
     @Category(PublicTests.class)
     public void testAcquireReleaseDuplicateLock() {
-        // Transaction 0 acquires an X lock on table0
+        // 事务0获取table0上的X锁
         DeterministicRunner runner = new DeterministicRunner(1);
         runner.run(0, () -> lockman.acquireAndRelease(transactions[0], tables[0], LockType.X,
                    Collections.emptyList()));
         try {
-            // Transaction 0 attempts to acquire another X lock on table0
+            // 事务0尝试在table0上获取另一个X锁
             runner.run(0, () -> lockman.acquireAndRelease(transactions[0], tables[0], LockType.X,
                        Collections.emptyList()));
-            fail("Attempting to acquire a duplicate lock should throw a " +
-                 "DuplicateLockRequestException.");
+            fail("尝试获取重复锁应该抛出DuplicateLockRequestException。");
         } catch (DuplicateLockRequestException e) {
-            // do nothing
+            // 不做任何操作
         }
 
         runner.joinAll();
@@ -295,21 +289,20 @@ public class TestLockManager {
     @Test
     @Category(PublicTests.class)
     public void testAcquireReleaseNotHeld() {
-        // Transaction 0 acquires an X lock on table0
+        // 事务0获取table0上的X锁
         DeterministicRunner runner = new DeterministicRunner(1);
         runner.run(0, () -> lockman.acquireAndRelease(transactions[0], tables[0], LockType.X,
                    Collections.emptyList()));
         try {
-            // Transaction 0 attempts to acquire an X lock on table2,
-            // and release locks on table0 and table1.
+            // 事务0尝试在table2上获取X锁，
+            // 并释放table0和table1上的锁。
             runner.run(0, () -> lockman.acquireAndRelease(
                 transactions[0], tables[2],
                 LockType.X, Arrays.asList(tables[0], tables[1]))
             );
-            fail("Attempting to release a lock that is not held should throw " +
-                 "a NoLockHeldException.");
+            fail("尝试释放未持有的锁应该抛出NoLockHeldException。");
         } catch (NoLockHeldException e) {
-            // do nothing
+            // 不做任何操作
         }
 
         runner.joinAll();
@@ -319,8 +312,8 @@ public class TestLockManager {
     @Category(PublicTests.class)
     public void testAcquireReleaseUpgrade() {
         /**
-         * Transaction 0 acquires an S lock on table0
-         * Transaction 0 acquires an X lock on table0 and releases its S lock
+         * 事务0获取table0上的S锁
+         * 事务0获取table0上的X锁并释放其S锁
          */
         DeterministicRunner runner = new DeterministicRunner(1);
         runner.run(0, () -> {
@@ -329,14 +322,14 @@ public class TestLockManager {
                                       Collections.singletonList(tables[0]));
         });
 
-        // Transaction 0 should have an X lock on table0
+        // 事务0应该在table0上有一个X锁
         assertEquals(LockType.X, lockman.getLockType(transactions[0], tables[0]));
 
-        // table0 should only have an X lock from Transaction 0
+        // table0应该只从事务0有一个X锁
         List<Lock> expectedTable0Locks = Collections.singletonList(new Lock(tables[0], LockType.X, 0L));
         assertEquals(expectedTable0Locks, lockman.getLocks(tables[0]));
 
-        // Transaction 0 should not be blocked
+        // 事务0不应该被阻塞
         assertFalse(transactions[0].getBlocked());
 
         runner.joinAll();
@@ -346,71 +339,69 @@ public class TestLockManager {
     @Category(PublicTests.class)
     public void testSXS() {
         /**
-         * Transaction 0 acquires an S lock on dbResource
-         * Transaction 1 attempts to acquire an X lock on dbResource but
-         *    blocks due to a conflict with Transaction 0's S lock
-         * Transaction 2 attempts to acquire an S lock on dbResource but
-         *    blocks due to existing queue
+         * 事务0获取dbResource上的S锁
+         * 事务1尝试获取dbResource上的X锁，但由于与事务0的S锁冲突而被阻塞
+         * 事务2尝试获取dbResource上的S锁，但由于存在队列而被阻塞
          *
-         * After this:
-         *    dbResource should have an S lock from Transaction 0
-         *    dbResource should have [X (T1), S (T2)] in its queue
-         *    Transaction 0 should be unblocked
-         *    Transaction 1 should be blocked
-         *    Transaction 2 should be blocked
+         * 在这之后：
+         *    dbResource应该从事务0有一个S锁
+         *    dbResource队列中应该有[X (T1), S (T2)]
+         *    事务0应该不被阻塞
+         *    事务1应该被阻塞
+         *    事务2应该被阻塞
          */
         DeterministicRunner runner = new DeterministicRunner(3);
         runner.run(0, () -> lockman.acquire(transactions[0], dbResource, LockType.S));
         runner.run(1, () -> lockman.acquire(transactions[1], dbResource, LockType.X));
         runner.run(2, () -> lockman.acquire(transactions[2], dbResource, LockType.S));
 
-        // Lock check
+        // 锁检查
         assertEquals(Collections.singletonList(new Lock(dbResource, LockType.S, 0L)),
                      lockman.getLocks(dbResource));
 
-        // Block checks
+        // 阻塞检查
         List<Boolean> blocked_status = new ArrayList<>();
         for (int i = 0; i < 3; ++i) { blocked_status.add(i, transactions[i].getBlocked()); }
         assertEquals(Arrays.asList(false, true, true), blocked_status);
 
         /**
-         * Transaction 0 releases its S lock on dbResource
-         * Transaction 1 should unblock and acquire an X lock on dbResource
-         * Transaction 2 will move forward in the queue, but still be blocked
+         * 事务0释放其在dbResource上的S锁
+         * 事务1应该解除阻塞并获取dbResource上的X锁
+         * 事务2将在队列中前进，但仍然被阻塞
          *
-         * After this:
-         *    dbResource should have an X lock from Transaction 1
-         *    dbResource should have [S (T2)] in its queue
-         *    Transaction 0 should be unblocked
-         *    Transaction 1 should be unblocked
-         *    Transaction 2 should be blocked
+         * 在这之后：
+         *    dbResource应该从事务1有一个X锁
+         *    dbResource队列中应该有[S (T2)]
+         *    事务0应该不被阻塞
+         *    事务1应该不被阻塞
+         *    事务2应该被阻塞
          */
         runner.run(0, () -> lockman.release(transactions[0], dbResource));
 
-        // Lock check
+        // 锁检查
         assertEquals(Collections.singletonList(new Lock(dbResource, LockType.X, 1L)),
                      lockman.getLocks(dbResource));
 
-        // Block checks
+        // 阻塞检查
         blocked_status.clear();
         for (int i = 0; i < 3; ++i) { blocked_status.add(i, transactions[i].getBlocked()); }
         assertEquals(Arrays.asList(false, false, true), blocked_status);
 
         /**
-         * Transaction 1 releases its X lock on dbResource
-         * Transaction 2 should unblock and acquire an S lock on dbResource
+         * 事务1释放其在dbResource上的X锁
+         * 事务2应该解除阻塞并获取dbResource上的S锁
          *
-         * After this:
-         *    dbResource should have an S lock from Transaction 1
-         *    All transactions should be unblocked
+         * 在这之后：
+         *    dbResource应该从事务1有一个S锁
+         *    所有事务都应该不被阻塞
          */
         runner.run(1, () -> lockman.release(transactions[1], dbResource));
 
-        // Lock check
+        // 锁检查
         assertEquals(Collections.singletonList(new Lock(dbResource, LockType.S, 2L)),
                      lockman.getLocks(dbResource));
 
-        // Block checks
+        // 阻塞检查
         blocked_status.clear();
         for (int i = 0; i < 3; ++i) { blocked_status.add(i, transactions[i].getBlocked()); }
         assertEquals(Arrays.asList(false, false, false), blocked_status);
@@ -422,18 +413,15 @@ public class TestLockManager {
     @Category(PublicTests.class)
     public void testXSXS() {
         /**
-         * Transaction 0 acquires an X lock on dbResource
-         * Transaction 1 attempts to acquire an S lock on dbResource but
-         *    blocks due to a conflict with Transaction 0's X lock
-         * Transaction 2 attempts to acquire an X lock on dbResource but
-         *    blocks due to an existing queue
-         * Transaction 3 attempts to acquire an S lock on dbResource but
-         *    blocks due to an existing queue
+         * 事务0获取dbResource上的X锁
+         * 事务1尝试获取dbResource上的S锁，但由于与事务0的X锁冲突而被阻塞
+         * 事务2尝试获取dbResource上的X锁，但由于存在队列而被阻塞
+         * 事务3尝试获取dbResource上的S锁，但由于存在队列而被阻塞
          *
-         * After this:
-         *    Transaction 0 should have an X lock on dbResource
-         *    dbResources should have [S (T1), X (T2), S (T3)] in its queue
-         *    Transaction 0 should be unblocked, the rest should be blocked
+         * 在这之后：
+         *    事务0应该在dbResource上有一个X锁
+         *    dbResource队列中应该有[S (T1), X (T2), S (T3)]
+         *    事务0应该不被阻塞，其余事务应该被阻塞
          */
         DeterministicRunner runner = new DeterministicRunner(4);
         runner.run(0, () -> lockman.acquire(transactions[0], dbResource, LockType.X));
@@ -441,77 +429,74 @@ public class TestLockManager {
         runner.run(2, () -> lockman.acquire(transactions[2], dbResource, LockType.X));
         runner.run(3, () -> lockman.acquire(transactions[3], dbResource, LockType.S));
 
-        // Lock check
+        // 锁检查
         assertEquals(Collections.singletonList(new Lock(dbResource, LockType.X, 0L)),
                      lockman.getLocks(dbResource));
 
-        // Block checks
+        // 阻塞检查
         List<Boolean> blocked_status = new ArrayList<>();
         for (int i = 0; i < 4; ++i) { blocked_status.add(i, transactions[i].getBlocked()); }
         assertEquals(Arrays.asList(false, true, true, true), blocked_status);
 
         /**
-         * Transaction 0 releases its X lock on dbResource
-         * Transaction 1 acquires an S lock on dbResource and unblocks
-         * Transaction 2 moves forwards in the queue but remains blocked because
-         *    of a conflict with Transaction 1's S lock
-         * Transaction 3 moves forwards in the queue but remains blocked behind
-         *    Transaction 2
+         * 事务0释放其在dbResource上的X锁
+         * 事务1获取dbResource上的S锁并解除阻塞
+         * 事务2在队列中前进但仍然被阻塞，因为与事务1的S锁冲突
+         * 事务3在队列中前进但仍然在事务2后面被阻塞
          *
-         * After this:
-         *    Transaction 1 should have an S lock on dbResource
-         *    dbResources should have [X (T2), S (T3)] in its queue
-         *    Transaction 0 and 1 should be unblocked, 2 and 3 should be blocked
+         * 在这之后：
+         *    事务1应该在dbResource上有一个S锁
+         *    dbResource队列中应该有[X (T2), S (T3)]
+         *    事务0和1应该不被阻塞，2和3应该被阻塞
          */
         runner.run(0, () -> lockman.release(transactions[0], dbResource));
 
-        // Lock check
+        // 锁检查
         assertEquals(Collections.singletonList(new Lock(dbResource, LockType.S, 1L)),
                      lockman.getLocks(dbResource));
 
-        // Block checks
+        // 阻塞检查
         blocked_status.clear();
         for (int i = 0; i < 4; ++i) { blocked_status.add(i, transactions[i].getBlocked()); }
         assertEquals(Arrays.asList(false, false, true, true), blocked_status);
 
         /**
-         * Transaction 1 releases its S lock on dbResource
-         * Transaction 2 acquires an X lock on dbResource and unblocks
-         * Transaction 3 moves forward in the queue but remains blocked because
-         *    of a conflict with Transaction 2's X lock
+         * 事务1释放其在dbResource上的S锁
+         * 事务2获取dbResource上的X锁并解除阻塞
+         * 事务3在队列中前进但仍然被阻塞，因为与事务2的X锁冲突
          *
-         * After this:
-         *    Transaction 2 should have an X lock on dbResource
-         *    dbResources should have [S (T3)] in its queue
-         *    Transaction 0, 1 and 2 should be unblocked, 3 should blocked
+         * 在这之后：
+         *    事务2应该在dbResource上有一个X锁
+         *    dbResource队列中应该有[S (T3)]
+         *    事务0、1和2应该不被阻塞，3应该被阻塞
          */
         runner.run(1, () -> lockman.release(transactions[1], dbResource));
 
-        // Lock check
+        // 锁检查
         assertEquals(Collections.singletonList(new Lock(dbResource, LockType.X, 2L)),
                      lockman.getLocks(dbResource));
 
-        // Block checks
+        // 阻塞检查
         blocked_status.clear();
         for (int i = 0; i < 4; ++i) { blocked_status.add(i, transactions[i].getBlocked()); }
         assertEquals(Arrays.asList(false, false, false, true), blocked_status);
 
         /**
-         * Transaction 2 releases its X lock on dbResource
-         * Transaction 3 acquires an S lock on dbResource and unblocks
+         * 事务2释放其在dbResource上的X锁
+         * 事务3获取dbResource上的S锁并解除阻塞
          *
-         * After this:
-         *    Transaction 3 should have an S lock on dbResource
-         *    dbResources should have an empty queue
-         *    All transactions should be unblocked
+         * 在这之后：
+         *    事务3应该在dbResource上有一个S锁
+         *    dbResource队列应该为空
+         *    所有事务都应该不被阻塞
          */
         runner.run(2, () -> lockman.release(transactions[2], dbResource));
 
-        // Lock check
+        // 锁检查
         assertEquals(Collections.singletonList(new Lock(dbResource, LockType.S, 3L)),
                      lockman.getLocks(dbResource));
 
-        // Block checks
+        // 阻塞检查
         blocked_status.clear();
         for (int i = 0; i < 4; ++i) { blocked_status.add(i, transactions[i].getBlocked()); }
         assertEquals(Arrays.asList(false, false, false, false), blocked_status);
@@ -523,8 +508,8 @@ public class TestLockManager {
     @Category(PublicTests.class)
     public void testSimplePromoteLock() {
         /**
-         * Transaction 0 acquires an S lock on dbResource
-         * Transaction 0 promotes its S lock on dbResource to an X lock
+         * 事务0获取dbResource上的S锁
+         * 事务0将其在dbResource上的S锁升级为X锁
          */
         DeterministicRunner runner = new DeterministicRunner(1);
         runner.run(0, () -> {
@@ -532,7 +517,7 @@ public class TestLockManager {
             lockman.promote(transactions[0], dbResource, LockType.X);
         });
 
-        // Lock checks
+        // 锁检查
         assertEquals(LockType.X, lockman.getLockType(transactions[0], dbResource));
         assertEquals(Collections.singletonList(new Lock(dbResource, LockType.X, 0L)),
                 lockman.getLocks(dbResource));
@@ -546,10 +531,9 @@ public class TestLockManager {
         DeterministicRunner runner = new DeterministicRunner(1);
         try {
             runner.run(0, () -> lockman.promote(transactions[0], dbResource, LockType.X));
-            fail("Attempting to promote a lock that doesn't exist should " +
-                    "throw a NoLockHeldException.");
+            fail("尝试升级一个不存在的锁应该抛出NoLockHeldException。");
         } catch (NoLockHeldException e) {
-            // do nothing
+            // 不做任何操作
         }
 
         runner.joinAll();
@@ -563,10 +547,9 @@ public class TestLockManager {
         runner.run(0, () -> lockman.acquire(transactions[0], dbResource, LockType.X));
         try {
             runner.run(0, () -> lockman.promote(transactions[0], dbResource, LockType.X));
-            fail("Attempting to promote a lock to an equivalent lock should " +
-                    "throw a DuplicateLockRequestException");
+            fail("尝试将锁升级到等效锁应该抛出DuplicateLockRequestException");
         } catch (DuplicateLockRequestException e) {
-            // do nothing
+            // 不做任何操作
         }
 
         runner.joinAll();
@@ -576,53 +559,50 @@ public class TestLockManager {
     @Category(PublicTests.class)
     public void testFIFOQueueLocks() {
         /**
-         * Transaction 0 acquires an X lock on dbResource
-         * Transaction 1 attempts to acquire an X lock on dbResource but
-         *    blocks because of a conflict with Transaction 0's X lock
-         * Transaction 2 attempts to acquire an X lock on dbResource but
-         *    blocks because of an existing queue
+         * 事务0获取dbResource上的X锁
+         * 事务1尝试获取dbResource上的X锁，但由于与事务0的X锁冲突而被阻塞
+         * 事务2尝试获取dbResource上的X锁，但由于存在队列而被阻塞
          *
-         * After this:
-         *    Transaction 0 should have an X lock on dbResource
-         *    dbResource should have [X (T1), X (T2)] in its queue
+         * 在这之后：
+         *    事务0应该在dbResource上有一个X锁
+         *    dbResource队列中应该有[X (T1), X (T2)]
          */
         DeterministicRunner runner = new DeterministicRunner(3);
         runner.run(0, () -> lockman.acquire(transactions[0], dbResource, LockType.X));
         runner.run(1, () -> lockman.acquire(transactions[1], dbResource, LockType.X));
         runner.run(2, () -> lockman.acquire(transactions[2], dbResource, LockType.X));
 
-        // Lock checks
+        // 锁检查
         assertTrue(holds(lockman, transactions[0], dbResource, LockType.X));
         assertFalse(holds(lockman, transactions[1], dbResource, LockType.X));
         assertFalse(holds(lockman, transactions[2], dbResource, LockType.X));
 
         /**
-         * Transaction 0 releases its X lock on dbResource
-         * Transaction 1 acquires an X lock on dbResource and unblocks
-         * Transaction 2 moves forwards in the queue but remains blocked
-         *    because of a conflict with Transaction 1's X lock
+         * 事务0释放其在dbResource上的X锁
+         * 事务1获取dbResource上的X锁并解除阻塞
+         * 事务2在队列中前进但仍然被阻塞，因为与事务1的X锁冲突
          *
-         * After this:
-         *    Transaction 1 should have an X lock on dbResource
-         *    dbResource should have [X (T2)] in its queue
+         * 在这之后：
+         *    事务1应该在dbResource上有一个X锁
+         *    dbResource队列中应该有[X (T2)]
          */
         runner.run(0, () -> lockman.release(transactions[0], dbResource));
 
-        // Lock checks
+        // 锁检查
         assertFalse(holds(lockman, transactions[0], dbResource, LockType.X));
         assertTrue(holds(lockman, transactions[1], dbResource, LockType.X));
         assertFalse(holds(lockman, transactions[2], dbResource, LockType.X));
 
         /**
-         * Transaction 1 releases its X lock on dbResource
-         * Transaction 2 acquires an X lock on dbResource and unblocks
+         * 事务1释放其在dbResource上的X锁
+         * 事务2获取dbResource上的X锁并解除阻塞
          *
-         * After this:
-         *    Transaction 2 should have an X lock on dbResource
+         * 在这之后：
+         *    事务2应该在dbResource上有一个X锁
          */
         runner.run(1, () -> lockman.release(transactions[1], dbResource));
 
-        // Lock checks
+        // 锁检查
         assertFalse(holds(lockman, transactions[0], dbResource, LockType.X));
         assertFalse(holds(lockman, transactions[1], dbResource, LockType.X));
         assertTrue(holds(lockman, transactions[2], dbResource, LockType.X));
@@ -637,33 +617,32 @@ public class TestLockManager {
         TransactionContext t1 = transactions[1];
 
         /**
-         * Transaction 0 acquires an X lock on dbResource
-         * Transaction 1 attempts to acquire an X lock on dbResource but
-         *    blocks due to a conflict with Transaction 0's X lock
+         * 事务0获取dbResource上的X锁
+         * 事务1尝试获取dbResource上的X锁，但由于与事务0的X锁冲突而被阻塞
          */
         DeterministicRunner runner = new DeterministicRunner(2);
         runner.run(0, () -> lockman.acquire(t0, dbResource, LockType.X));
         runner.run(1, () -> lockman.acquire(t1, dbResource, LockType.X));
 
-        // Lock checks
+        // 锁检查
         assertTrue(holds(lockman, t0, dbResource, LockType.X));
         assertFalse(holds(lockman, t1, dbResource, LockType.X));
 
-        // Block checks
+        // 阻塞检查
         assertFalse(t0.getBlocked());
         assertTrue(t1.getBlocked());
 
         /**
-         * Transaction 0 releases its X lock on dbResource
-         * Transaction 1 acquires an X lock on dbResource and unblocks
+         * 事务0释放其在dbResource上的X锁
+         * 事务1获取dbResource上的X锁并解除阻塞
          */
         runner.run(0, () -> lockman.release(t0, dbResource));
 
-        // Lock checks
+        // 锁检查
         assertFalse(holds(lockman, t0, dbResource, LockType.X));
         assertTrue(holds(lockman, t1, dbResource, LockType.X));
 
-        // Block checks
+        // 阻塞检查
         assertFalse(t0.getBlocked());
         assertFalse(t1.getBlocked());
 
@@ -677,8 +656,8 @@ public class TestLockManager {
         TransactionContext t1 = transactions[1];
 
         /**
-         * Transaction 0 acquires an S lock on dbResource
-         * Transaction 1 acquires an S lock on dbResource
+         * 事务0获取dbResource上的S锁
+         * 事务1获取dbResource上的S锁
          */
         DeterministicRunner runner = new DeterministicRunner(2);
         runner.run(0, () -> lockman.acquire(t0, dbResource, LockType.S));
@@ -688,9 +667,8 @@ public class TestLockManager {
         assertTrue(holds(lockman, t1, dbResource, LockType.S));
 
         /**
-         * Transaction 0 attempts to promote its S lock to an X lock but fails
-         *    due to a conflict with Transaction 1's S lock. Transaction 0
-         *    queues an X lock and blocks.
+         * 事务0尝试将其S锁升级为X锁，但由于与事务1的S锁冲突而失败。事务0
+         * 将X锁加入队列并被阻塞。
          */
         runner.run(0, () -> lockman.promote(t0, dbResource, LockType.X));
 
@@ -700,8 +678,8 @@ public class TestLockManager {
         assertTrue(t0.getBlocked());
 
         /**
-         * Transaction 1 releases its S lock on dbResource
-         * Transaction 0 promotes its S lock to an X lock and unblocks
+         * 事务1释放其在dbResource上的S锁
+         * 事务0将其S锁升级为X锁并解除阻塞
          */
         runner.run(1, () -> lockman.release(t1, dbResource));
 
@@ -710,7 +688,7 @@ public class TestLockManager {
         assertFalse(t0.getBlocked());
 
         /**
-         * Transaction 0 releases its X lock on dbResource
+         * 事务0释放其在dbResource上的X锁
          */
         runner.run(0, () -> lockman.release(t0, dbResource));
 
@@ -729,22 +707,21 @@ public class TestLockManager {
         TransactionContext t1 = transactions[1];
 
         /**
-         * Transaction 0 acquires an S lock on dbResource
-         * Transaction 1 attempts to acquire an IX lock on dbResource, but
-         *    blocks due to a conflict with Transaction 0's S lock
+         * 事务0获取dbResource上的S锁
+         * 事务1尝试获取dbResource上的IX锁，但由于与事务0的S锁冲突而被阻塞
          */
         runner.run(0, () -> lockman.acquire(t0, dbResource, LockType.S));
         runner.run(1, () -> lockman.acquire(t1, dbResource, LockType.IX));
         assertFalse(t0.getBlocked());
         assertTrue(t1.getBlocked());
 
-        // Lock checks
+        // 锁检查
         assertTrue(holds(lockman, t0, dbResource, LockType.S));
         assertFalse(holds(lockman, t1, dbResource, LockType.IX));
 
         /**
-         * Transaction 0 releases its S lock on dbResource
-         * Transaction 1 acquires an IX lock on dbResource and unblocks
+         * 事务0释放其在dbResource上的S锁
+         * 事务1获取dbResource上的IX锁并解除阻塞
          */
         runner.run(0, () -> lockman.release(t0, dbResource));
 

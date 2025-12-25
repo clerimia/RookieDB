@@ -97,11 +97,15 @@ public class TestOptimizationJoins {
             // table1 is 2 pages
             // table2 is 4 pages
             // table3 is 7 pages
-            QueryPlan query = transaction.query("table1");
+            QueryPlan query = transaction.query("table1");  // 调用的是QueryPlan第一个构造函数
+            // 等值join
             query.join("table2", "table1.int", "table2.int");
+            // 等值join
             query.join("table3", "table2.int", "table3.int");
 
+
             // Create Pass 1 Map for the three tables
+            // 创建三个表的最佳基表访问
             String[] tables = {"table1", "table2", "table3"};
             Map<Set<String>, QueryOperator> pass1Map = new HashMap<>();
             for (int i = 0; i < tables.length; i++) {
@@ -110,9 +114,11 @@ public class TestOptimizationJoins {
             }
 
             // Run one pass. After this pass the following joins should be considered:
+            // 开始进行动态规划
+            // 只有两个join谓词
             // - {table1, table2}
             // - {table2, table3}
-            Map<Set<String>, QueryOperator> pass2Map = query.minCostJoins(pass1Map, pass1Map);
+            Map<Set<String>, QueryOperator> pass2Map = query.minCostJoins(pass1Map, pass1Map);  // 第一轮选择，获取了
             assertEquals(2, pass2Map.size());
             Set<String> set12 = new HashSet<>();
             set12.add("table1");
@@ -139,6 +145,7 @@ public class TestOptimizationJoins {
             assertEquals(18, op23.estimateIOCost());
 
             // Runs another pass
+            // 第三躺
             Map<Set<String>, QueryOperator> pass3Map = query.minCostJoins(pass2Map, pass1Map);
             assertEquals(1, pass3Map.size());
             Set<String> set123 = new HashSet<>();

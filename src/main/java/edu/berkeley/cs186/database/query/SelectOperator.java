@@ -50,8 +50,12 @@ public class SelectOperator extends QueryOperator {
 
     @Override
     public String str() {
-        return String.format("选择 %s%s%s (成本=%d)",
-                this.columnName, this.operator.toSymbol(), this.value, this.estimateIOCost());
+        return String.format("Select %s%s%s (Cost=%d)",
+                this.columnName,
+                this.operator.toSymbol(),
+                this.value,
+                this.estimateIOCost()
+        );
     }
 
     /**

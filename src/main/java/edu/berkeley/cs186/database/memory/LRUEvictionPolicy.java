@@ -1,15 +1,13 @@
 package edu.berkeley.cs186.database.memory;
 
 /**
- * Implementation of LRU eviction policy, which works by creating a
- * doubly-linked list between frames in order of ascending use time.
+ * LRU（最近最少使用）淘汰策略的实现，该策略通过在帧之间创建按使用时间升序排列的双向链表来工作。
  */
 public class LRUEvictionPolicy implements EvictionPolicy {
     private Tag listHead;
     private Tag listTail;
 
-    // Doubly-linked list between frames, in order of least to most
-    // recently used.
+    // 帧之间的双向链表，按最近最少使用到最近最多使用的顺序排列
     private class Tag {
         Tag prev = null;
         Tag next = null;
@@ -32,8 +30,8 @@ public class LRUEvictionPolicy implements EvictionPolicy {
     }
 
     /**
-     * Called to initiaize a new buffer frame.
-     * @param frame new frame to be initialized
+     * 调用以初始化新的缓冲区帧。
+     * @param frame 要初始化的新帧
      */
     @Override
     public void init(BufferFrame frame) {
@@ -47,8 +45,8 @@ public class LRUEvictionPolicy implements EvictionPolicy {
     }
 
     /**
-     * Called when a frame is hit.
-     * @param frame Frame object that is being read from/written to
+     * 当帧被访问时调用。
+     * @param frame 正在读取/写入的帧对象
      */
     @Override
     public void hit(BufferFrame frame) {
@@ -62,10 +60,10 @@ public class LRUEvictionPolicy implements EvictionPolicy {
     }
 
     /**
-     * Called when a frame needs to be evicted.
-     * @param frames Array of all frames (same length every call)
-     * @return index of frame to be evicted
-     * @throws IllegalStateException if everything is pinned
+     * 当需要淘汰帧时调用。
+     * @param frames 所有帧的数组（每次调用长度相同）
+     * @return 要被淘汰的帧的索引
+     * @throws IllegalStateException 如果所有帧都被固定
      */
     @Override
     public BufferFrame evict(BufferFrame[] frames) {
@@ -74,16 +72,15 @@ public class LRUEvictionPolicy implements EvictionPolicy {
             frameTag = frameTag.next;
         }
         if (frameTag.cur == null) {
-            throw new IllegalStateException("cannot evict anything - everything pinned");
+            throw new IllegalStateException("无法淘汰任何内容 - 所有帧都被固定");
         }
         return frameTag.cur;
     }
 
     /**
-     * Called when a frame is removed, either because it
-     * was returned from a call to evict, or because of other constraints
-     * (e.g. if the page is deleted on disk).
-     * @param frame frame being removed
+     * 当帧被移除时调用，要么是因为它从淘汰调用中返回，
+     * 要么是因为其他约束条件（例如磁盘上的页面被删除）。
+     * @param frame 正在移除的帧
      */
     @Override
     public void cleanup(BufferFrame frame) {

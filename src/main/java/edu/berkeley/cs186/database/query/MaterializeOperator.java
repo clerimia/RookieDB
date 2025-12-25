@@ -29,7 +29,7 @@ public class MaterializeOperator extends SequentialScanOperator {
 
     @Override
     public String str() {
-        return "物化 (成本: " + this.estimateIOCost() + ")";
+        return "Materialize (Cost: " + this.estimateIOCost() + ")";
     }
 
     @Override

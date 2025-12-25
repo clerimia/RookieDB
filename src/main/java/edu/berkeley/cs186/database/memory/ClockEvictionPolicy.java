@@ -1,14 +1,13 @@
 package edu.berkeley.cs186.database.memory;
 
 /**
- * Implementation of clock eviction policy, which works by adding a reference
- * bit to each frame, and running the algorithm.
+ * 时钟淘汰策略的实现，该策略通过为每个帧添加一个引用位并运行算法来工作。
  */
 public class ClockEvictionPolicy implements EvictionPolicy {
     private int arm;
 
     private static final Object ACTIVE = true;
-    // null not false, because default tag (before this class ever sees a frame) is null.
+    // 使用null而不是false，因为默认标记（在该类首次看到帧之前）是null。
     private static final Object INACTIVE = null;
 
     public ClockEvictionPolicy() {
@@ -16,15 +15,15 @@ public class ClockEvictionPolicy implements EvictionPolicy {
     }
 
     /**
-     * Called to initiaize a new buffer frame.
-     * @param frame new frame to be initialized
+     * 调用以初始化新的缓冲帧。
+     * @param frame 要初始化的新帧
      */
     @Override
     public void init(BufferFrame frame) {}
 
     /**
-     * Called when a frame is hit.
-     * @param frame Frame object that is being read from/written to
+     * 当帧被访问时调用。
+     * @param frame 正在被读取/写入的帧对象
      */
     @Override
     public void hit(BufferFrame frame) {
@@ -32,18 +31,17 @@ public class ClockEvictionPolicy implements EvictionPolicy {
     }
 
     /**
-     * Called when a frame needs to be evicted.
-     * @param frames Array of all frames (same length every call)
-     * @return index of frame to be evicted
-     * @throws IllegalStateException if everything is pinned
+     * 当需要淘汰帧时调用。
+     * @param frames 所有帧的数组（每次调用长度相同）
+     * @return 要被淘汰的帧的索引
+     * @throws IllegalStateException 如果所有帧都被固定
      */
     @Override
     public BufferFrame evict(BufferFrame[] frames) {
         int iters = 0;
-        // loop around the frames looking for a frame that has bit 0
-        // iters is used to ensure that we don't loop forever - after two
-        // passes through the frames, every frame has bit 0, so if we still haven't
-        // found a good page to evict, everything is pinned.
+        // 循环遍历帧，寻找标记位为0的帧
+        // 使用iters确保不会无限循环 - 在遍历两轮后，每个帧的标记位都为0，
+        // 因此如果仍然没有找到合适的页面进行淘汰，则说明所有帧都被固定了。
         while ((frames[this.arm].tag == ACTIVE || frames[this.arm].isPinned()) &&
                 iters < 2 * frames.length) {
             frames[this.arm].tag = INACTIVE;
@@ -51,7 +49,7 @@ public class ClockEvictionPolicy implements EvictionPolicy {
             ++iters;
         }
         if (iters == 2 * frames.length) {
-            throw new IllegalStateException("cannot evict - everything pinned");
+            throw new IllegalStateException("无法淘汰 - 所有帧都被固定");
         }
         BufferFrame evicted = frames[this.arm];
         this.arm = (this.arm + 1) % frames.length;
@@ -59,10 +57,9 @@ public class ClockEvictionPolicy implements EvictionPolicy {
     }
 
     /**
-     * Called when a frame is removed, either because it
-     * was returned from a call to evict, or because of other constraints
-     * (e.g. if the page is deleted on disk).
-     * @param frame frame being removed
+     * 当帧被移除时调用，无论是因为它从evict调用中返回，
+     * 还是由于其他约束条件（例如磁盘上的页面被删除）。
+     * @param frame 正在被移除的帧
      */
     @Override
     public void cleanup(BufferFrame frame) {}

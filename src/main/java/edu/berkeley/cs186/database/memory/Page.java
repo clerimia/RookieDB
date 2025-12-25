@@ -9,21 +9,21 @@ import edu.berkeley.cs186.database.concurrency.LockUtil;
 import edu.berkeley.cs186.database.io.PageException;
 
 /**
- * Represents a page loaded in memory (as opposed to the buffer frame it's in). Wraps
- * around buffer manager frames, and requests the page be loaded into memory as necessary.
+ * 表示加载到内存中的页面（与所在的缓冲区帧相对）。包装
+ * 缓冲区管理器帧，并在必要时请求将页面加载到内存中。
  */
 public class Page {
-    // lock context for this page
+    // 此页面的锁上下文
     private LockContext lockContext;
 
-    // buffer manager frame for this page's data (potentially invalidated)
+    // 此页面数据的缓冲区管理器帧（可能已失效）
     private BufferFrame frame;
 
     /**
-     * Create a page handle with the given buffer frame
+     * 使用给定的缓冲区帧创建页面句柄
      *
-     * @param lockContext the lock context
-     * @param frame the buffer manager frame for this page
+     * @param lockContext 锁上下文
+     * @param frame 此页面的缓冲区管理器帧
      */
     Page(LockContext lockContext, BufferFrame frame) {
         this.lockContext = lockContext;
@@ -31,9 +31,9 @@ public class Page {
     }
 
     /**
-     * Creates a page handle given another page handle
+     * 根据另一个页面句柄创建页面句柄
      *
-     * @param page page handle to copy
+     * @param page 要复制的页面句柄
      */
     protected Page(Page page) {
         this.lockContext = page.lockContext;
@@ -41,46 +41,46 @@ public class Page {
     }
 
     /**
-     * Disables locking on this page handle.
+     * 禁用此页面句柄上的锁定。
      */
     public void disableLocking() {
         this.lockContext = new DummyLockContext("_dummyPage");
     }
 
     /**
-     * Gets a Buffer object for more convenient access to the page.
+     * 获取一个Buffer对象以便更方便地访问页面。
      *
-     * @return Buffer object over this page
+     * @return 此页面上的Buffer对象
      */
     public Buffer getBuffer() {
         return new PageBuffer();
     }
 
     /**
-     * Reads num bytes from offset position into buf.
+     * 从偏移位置读取num个字节到buf中。
      *
-     * @param position the offset in the page to read from
-     * @param num the number of bytes to read
-     * @param buf the buffer to put the bytes into
+     * @param position 页面中要读取的偏移量
+     * @param num 要读取的字节数
+     * @param buf 要放入字节的缓冲区
      */
     private void readBytes(int position, int num, byte[] buf) {
         if (position < 0 || num < 0) {
-            throw new PageException("position or num can't be negative");
+            throw new PageException("position或num不能为负数");
         }
         if (frame.getEffectivePageSize() < position + num) {
-            throw new PageException("readBytes is out of bounds");
+            throw new PageException("readBytes超出边界");
         }
         if (buf.length < num) {
-            throw new PageException("num bytes to read is longer than buffer");
+            throw new PageException("要读取的字节数比缓冲区长");
         }
 
         this.frame.readBytes((short) position, (short) num, buf);
     }
 
     /**
-     * Read all the bytes in file.
+     * 读取文件中的所有字节。
      *
-     * @return a new byte array with all the bytes in the file
+     * @return 包含文件中所有字节的新字节数组
      */
     private byte[] readBytes() {
         byte[] data = new byte[BufferManager.EFFECTIVE_PAGE_SIZE];
@@ -89,37 +89,37 @@ public class Page {
     }
 
     /**
-     * Write num bytes from buf at offset position.
+     * 在偏移位置从buf写入num个字节。
      *
-     * @param position the offest in the file to write to
-     * @param num the number of bytes to write
-     * @param buf the source for the write
+     * @param position 文件中要写入的偏移量
+     * @param num 要写入的字节数
+     * @param buf 写入的源
      */
     private void writeBytes(int position, int num, byte[] buf) {
         if (buf.length < num) {
-            throw new PageException("num bytes to write is longer than buffer");
+            throw new PageException("要写入的字节数比缓冲区长");
         }
 
         if (position < 0 || num < 0) {
-            throw new PageException("position or num can't be negative");
+            throw new PageException("position或num不能为负数");
         }
 
         if (frame.getEffectivePageSize() < num + position) {
-            throw new PageException("writeBytes would go out of bounds");
+            throw new PageException("writeBytes将超出边界");
         }
 
         this.frame.writeBytes((short) position, (short) num, buf);
     }
 
     /**
-     * Write all the bytes in file.
+     * 写入文件中的所有字节。
      */
     private void writeBytes(byte[] data) {
         getBuffer().put(data);
     }
 
     /**
-     * Completely wipe (zero out) the page.
+     * 完全擦除（清零）页面。
      */
     public void wipe() {
         byte[] zeros = new byte[BufferManager.EFFECTIVE_PAGE_SIZE];
@@ -127,42 +127,42 @@ public class Page {
     }
 
     /**
-     * Force the page to disk.
+     * 强制将页面刷新到磁盘。
      */
     public void flush() {
         this.frame.flush();
     }
 
     /**
-     * Loads the page into a frame (if necessary) and pins it.
+     * 将页面加载到帧中（如有必要）并固定它。
      */
     public void pin() {
         this.frame = this.frame.requestValidFrame();
     }
 
     /**
-     * Unpins the frame containing this page. Does not flush immediately.
+     * 取消固定包含此页面的帧。不会立即刷新。
      */
     public void unpin() {
         this.frame.unpin();
     }
 
     /**
-     * @return the virtual page number of this page
+     * @return 此页面的虚拟页号
      */
     public long getPageNum() {
         return this.frame.getPageNum();
     }
 
     /**
-     * @param pageLSN the new pageLSN of this page - should only be used by recovery
+     * @param pageLSN 此页面的新pageLSN - 应仅由恢复使用
      */
     public void setPageLSN(long pageLSN) {
         this.frame.setPageLSN(pageLSN);
     }
 
     /**
-     * @return the pageLSN of this page
+     * @return 此页面的pageLSN
      */
     public long getPageLSN() {
         return this.frame.getPageLSN();
@@ -182,8 +182,8 @@ public class Page {
     }
 
     /**
-     * Implementation of Buffer for the page data. All reads/writes ultimately wrap around
-     * Page#readBytes and Page#writeBytes, which delegates work to the buffer manager.
+     * 页面数据的Buffer实现。所有读/写操作最终都包装在
+     * Page#readBytes和Page#writeBytes周围，这些操作将工作委托给缓冲区管理器。
      */
     private class PageBuffer extends AbstractBuffer {
         private int offset;
@@ -198,40 +198,40 @@ public class Page {
         }
 
         /**
-         * All read operations through the Page object must run through this method.
+         * 通过Page对象的所有读取操作都必须通过此方法运行。
          *
-         * @param dst destination byte buffer
-         * @param offset offset into page to start reading
-         * @param length number of bytes to read
+         * @param dst 目标字节缓冲区
+         * @param offset 页面中开始读取的偏移量
+         * @param length 要读取的字节数
          * @return this
          */
         @Override
         public Buffer get(byte[] dst, int offset, int length) {
-            // TODO(proj4_part2): Update the following line
+            // TODO(proj4_part2): 更新以下行
             LockUtil.ensureSufficientLockHeld(lockContext, LockType.NL);
             Page.this.readBytes(this.offset + offset, length, dst);
             return this;
         }
 
         /**
-         * All write operations through the Page object must run through this method.
+         * 通过Page对象的所有写入操作都必须通过此方法运行。
          *
-         * @param src source byte buffer (to copy to the page)
-         * @param offset offset into page to start writing
-         * @param length number of bytes to write
+         * @param src 源字节缓冲区（复制到页面）
+         * @param offset 页面中开始写入的偏移量
+         * @param length 要写入的字节数
          * @return this
          */
         @Override
         public Buffer put(byte[] src, int offset, int length) {
-            // TODO(proj4_part2): Update the following line
+            // TODO(proj4_part2): 更新以下行
             LockUtil.ensureSufficientLockHeld(lockContext, LockType.NL);
             Page.this.writeBytes(this.offset + offset, length, src);
             return this;
         }
 
         /**
-         * Create a new PageBuffer starting at the current offset.
-         * @return new PageBuffer starting at the current offset
+         * 创建一个从当前偏移量开始的新PageBuffer。
+         * @return 从当前偏移量开始的新PageBuffer
          */
         @Override
         public Buffer slice() {
@@ -239,8 +239,8 @@ public class Page {
         }
 
         /**
-         * Create a duplicate PageBuffer object
-         * @return PageBuffer that is functionally identical to this one
+         * 创建重复的PageBuffer对象
+         * @return 功能上与此对象相同的PageBuffer
          */
         @Override
         public Buffer duplicate() {

@@ -40,8 +40,9 @@ public class TestLockContext {
     @Before
     public void setUp() {
         lockManager = new LoggingLockManager();
+
         /**
-         * For all of these tests we have the following resource hierarchy
+         * 所有这些测试中我们都有以下资源层次结构
          *                     database
          *                        |
          *                      table1
@@ -417,5 +418,6 @@ public class TestLockContext {
         dbLockContext.escalate(t1);
         assertEquals(0, dbLockContext.getNumChildren(t1));
     }
+
 
 }

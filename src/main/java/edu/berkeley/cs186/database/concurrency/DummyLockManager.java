@@ -6,10 +6,9 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Dummy lock manager that does no locking or error checking.
+ * 虚拟锁管理器，不执行任何锁定或错误检查。
  *
- * Used for non-locking-related tests to disable locking. This allows earlier
- * and later projects to be completed without needing to complete Project 4.
+ * 用于与锁定无关的测试，以禁用锁定功能。这使得早期和后期项目可以在不完成项目4的情况下完成。
  */
 public class DummyLockManager extends LockManager {
     public DummyLockManager() { }

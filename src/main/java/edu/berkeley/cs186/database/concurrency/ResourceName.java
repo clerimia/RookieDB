@@ -6,19 +6,17 @@ import java.util.Iterator;
 import java.util.List;
 
 /**
- * This class represents the full name of a resource. The name of a resource is
- * an ordered tuple of strings, and any subsequence of the tuple starting with
- * the first element is the name of a resource higher up on the hierarchy.
+ * 这个类表示资源的完整名称。资源的名称是一个有序的字符串元组，
+ * 从元组开始的任何子序列都是层级结构中较高资源的名称。
  *
- * For example, a page may have the name ("database", "someTable", 10), where
- * "someTable" is the name of the table the page belongs to, and 10 is the page
- * number. We store this as the list ["database", "someTable", "10"] and its
- * ancestors on the hierarchy would be ["database"] (which represents the entire
- * database), and ["database", "someTable"] (which represents the the table,
- * of which this is a page of).
+ * 例如，一个页面可能有名称("database", "someTable", 10)，
+ * 其中"someTable" 是页面所属表的名称，10 是页码。
+ * 我们将其存储为列表 ["database", "someTable", "10"]，
+ * 而它在层级结构中的祖先将是 ["database"]（代表整个数据库）和 ["database", "someTable"]
+ * （代表表，这是该表的一个页面）。
  */
 public class ResourceName {
-    private final List<String> names;
+    private final List<String> names; // 有层级的名称
 
     public ResourceName(String name) {
         this(Collections.singletonList(name));
@@ -29,8 +27,8 @@ public class ResourceName {
     }
 
     /**
-     * @param parent This resource's parent, or null if this resource has no parent
-     * @param name The name of this resource.
+     * @param parent 此资源的父级，如果此资源没有父级则为null
+     * @param name 此资源的名称。
      */
     ResourceName(ResourceName parent, String name) {
         this.names = new ArrayList<>(parent.names);
@@ -38,8 +36,7 @@ public class ResourceName {
     }
 
     /**
-     * @return null if this resource has no parent, a copy of this resource's
-     * parent ResourceName otherwise.
+     * @return 如果此资源没有父级则返回null，否则返回此资源父级ResourceName的副本。
      */
     ResourceName parent() {
         if (names.size() > 1) {
@@ -49,7 +46,7 @@ public class ResourceName {
     }
 
     /**
-     * @return true if this resource is a descendant of `other`, false otherwise
+     * @return 如果此资源是`other`的后代则返回true，否则返回false
      */
     boolean isDescendantOf(ResourceName other) {
         if (other.names.size() >= names.size()) {
@@ -66,7 +63,7 @@ public class ResourceName {
     }
 
     /**
-     * @return this resource's names, e.g. a list like the following:
+     * @return 此资源的名称，例如以下列表：
      * - ["database, "someTable", "10"]
      */
     List<String> getNames() {

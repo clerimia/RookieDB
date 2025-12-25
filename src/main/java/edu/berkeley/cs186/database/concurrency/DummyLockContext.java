@@ -3,14 +3,13 @@ package edu.berkeley.cs186.database.concurrency;
 import edu.berkeley.cs186.database.TransactionContext;
 
 /**
- * A lock context that doesn't do anything at all. Used where a lock context
- * is expected, but no locking should be done.
+ * 一个什么都不做的锁上下文。用在需要锁上下文，
+ * 但不需要进行加锁的地方。
  *
- * An example of where this is useful: temporary tables (for example the runs
- * created in external sort) are only accessible from the transaction that
- * created them. Since there's no chance of multiple transactions attempting
- * to access these tables at the same time, we can safely use a dummy lock
- * context since no synchronization across transactions is needed.
+ * 一个有用的例子：临时表（例如外部排序中创建的运行表）
+ * 只能由创建它们的事务访问。由于多个事务同时尝试访问
+ * 这些表的可能性为零，我们可以安全地使用虚拟锁上下文，
+ * 因为不需要跨事务同步。
  */
 public class DummyLockContext extends LockContext {
     public DummyLockContext() {

@@ -51,7 +51,7 @@ class IndexScanOperator extends QueryOperator {
 
     @Override
     public String str() {
-        return String.format("索引扫描 %s%s%s 在表 %s 上 (成本=%d)",
+        return String.format("Index Scan %s%s%s On Table %s (Cost=%d)",
             this.columnName, this.predicate.toSymbol(), this.value, this.tableName,
             this.estimateIOCost());
     }
