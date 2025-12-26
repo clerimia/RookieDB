@@ -44,7 +44,7 @@ public class TestDatabase2PL {
                 TransactionContext.unsetTransaction();
             }
             this.db.close();
-        }
+        } // 关闭db
         if (this.lockManager != null && this.lockManager.isLogging()) {
             List<String> oldLog = this.lockManager.log;
             this.lockManager = new LoggingLockManager();
@@ -52,11 +52,11 @@ public class TestDatabase2PL {
             this.lockManager.startLog();
         } else {
             this.lockManager = new LoggingLockManager();
-        }
-        this.db = new Database(this.filename, 128, this.lockManager);
-        this.db.setWorkMem(32); // B=32
+        }   // 重启lockManager
+        this.db = new Database(this.filename, 128, this.lockManager);    // 创建db，指定文件名，锁管理器，内存页数
+        this.db.setWorkMem(32); // B=32 设置工作页面数
         // force initialization to finish before continuing
-        this.db.waitAllTransactions();
+        this.db.waitAllTransactions();  // 等待所有的事务完成后关闭
     }
 
     @ClassRule

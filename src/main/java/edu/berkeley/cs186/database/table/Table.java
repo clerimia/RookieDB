@@ -300,17 +300,15 @@ public class Table implements BacktrackingIterable<Record> {
     }
 
     /**
-     * Overwrites an existing record with new values and returns the existing
-     * record. stats is updated accordingly. An exception is thrown if rid does
-     * not correspond to an existing record in the table.
+     * 使用新值覆盖现有记录并返回被覆盖的记录。统计信息会相应更新。如果 rid 不对应表中现有的记录，
+     * 则抛出异常。
      */
     public synchronized Record updateRecord(RecordId rid, Record updated) {
         validateRecordId(rid);
-        // If we're updating a record we'll need exclusive access to the page
-        // its on.
+        // 如果我们要更新记录，需要对所在页面有独占访问权限。
         LockContext pageContext = tableContext.childContext(rid.getPageNum());
         // TODO(proj4_part2): Update the following line
-        LockUtil.ensureSufficientLockHeld(pageContext, LockType.NL);
+        LockUtil.ensureSufficientLockHeld(pageContext, LockType.X);
 
         Record newRecord = schema.verify(updated);
         Record oldRecord = getRecord(rid);
@@ -328,16 +326,15 @@ public class Table implements BacktrackingIterable<Record> {
     }
 
     /**
-     * Deletes and returns the record specified by rid from the table and updates
-     * stats, freePageNums, and numRecords as necessary. An exception is thrown
-     * if rid does not correspond to an existing record in the table.
+     * 从表中删除并返回由 rid 指定的记录，并相应地更新统计信息、空闲页面编号和记录数量。
+     * 如果 rid 不对应表中现有的记录，则抛出异常。
      */
     public synchronized Record deleteRecord(RecordId rid) {
         validateRecordId(rid);
         LockContext pageContext = tableContext.childContext(rid.getPageNum());
 
         // TODO(proj4_part2): Update the following line
-        LockUtil.ensureSufficientLockHeld(pageContext, LockType.NL);
+        LockUtil.ensureSufficientLockHeld(pageContext, LockType.X);
 
         Page page = fetchPage(rid.getPageNum());
         try {
@@ -401,26 +398,23 @@ public class Table implements BacktrackingIterable<Record> {
     // Iterators ///////////////////////////////////////////////////////////////
 
     /**
-     * @return Performs a full scan on the table to return id's of all existing
-     * records
+     * @return 对表进行全表扫描，返回所有现有记录的ID
      */
     public BacktrackingIterator<RecordId> ridIterator() {
         // TODO(proj4_part2): Update the following line
-        LockUtil.ensureSufficientLockHeld(tableContext, LockType.NL);
+        LockUtil.ensureSufficientLockHeld(tableContext, LockType.S);
 
         BacktrackingIterator<Page> iter = pageDirectory.iterator();
         return new ConcatBacktrackingIterator<>(new PageIterator(iter, false));
     }
 
     /**
-     * @param rids an iterator of record IDs for records in this table
-     * @return an iterator over the records corresponding to the record IDs. If
-     * the record ID iterator supported backtracking, the new record iterator
-     * will also support backtracking.
+     * @param rids 一个包含此表中记录ID的迭代器
+     * @return 一个遍历对应记录ID的记录的迭代器。如果记录ID迭代器支持回溯，则新的记录迭代器也支持回溯。
      */
     public BacktrackingIterator<Record> recordIterator(Iterator<RecordId> rids) {
         // TODO(proj4_part2): Update the following line
-        LockUtil.ensureSufficientLockHeld(tableContext, LockType.NL);
+        LockUtil.ensureSufficientLockHeld(tableContext, LockType.S);
         return new RecordIterator(rids);
     }
 

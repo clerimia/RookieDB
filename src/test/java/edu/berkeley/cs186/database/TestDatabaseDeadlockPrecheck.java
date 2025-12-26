@@ -38,8 +38,8 @@ public class TestDatabaseDeadlockPrecheck {
     }
 
     public static boolean performCheck(TemporaryFolder checkFolder) {
-        // If we are unable to request an X lock after an X lock is requested and released, there is no point
-        // running any of the later tests - every test will block the main thread.
+        // 如果在请求并释放X锁后无法再次请求X锁，则后续的测试就没有意义了
+        // 因为每个测试都会阻塞主线程。
         final ResourceName name = new ResourceName("database");
 
         Thread mainRunner = new Thread(() -> {
@@ -53,6 +53,7 @@ public class TestDatabaseDeadlockPrecheck {
                 Transaction transactionA = database.beginTransaction();
                 lockManager.acquire(transactionA.getTransactionContext(), name, LockType.X);
                 transactionA.close(); // The X lock should be released here
+                // 事务关闭后，所有的锁将会释放
 
                 Transaction transactionB = database.beginTransaction();
                 lockManager.acquire(transactionB.getTransactionContext(), name, LockType.X);

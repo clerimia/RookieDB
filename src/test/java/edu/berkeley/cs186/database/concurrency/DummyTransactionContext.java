@@ -17,9 +17,8 @@ import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
 /**
- * A dummy transaction class that only supports checking/setting active/blocked
- * status. Used for testing locking code without requiring an instance
- * of the database.
+ * 一个虚拟事务类，仅支持检查/设置活动/阻塞状态。
+ * 用于在不需要数据库实例的情况下测试锁代码。
  */
 public class DummyTransactionContext extends TransactionContext {
     private long tNum;

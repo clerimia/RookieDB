@@ -4,8 +4,7 @@ public class LoggingLockContext extends LockContext {
     private boolean allowDisable = true;
 
     /**
-     * A special LockContext that works with a LoggingLockManager to emit logs
-     * when the user uses disableChildLocks().
+     * 一个特殊的 LockContext，与 LoggingLockManager 配合使用，在用户调用 disableChildLocks() 时输出日志
      */
     LoggingLockContext(LoggingLockManager lockman, LockContext parent, String name) {
         super(lockman, parent, name);
@@ -17,11 +16,10 @@ public class LoggingLockContext extends LockContext {
     }
 
     /**
-     * Disables locking children. This causes all child contexts of this context
-     * to be readonly. This is used for indices and temporary tables (where
-     * we disallow finer-grain locks), the former due to complexity locking
-     * B+ trees, and the latter due to the fact that temporary tables are only
-     * accessible to one transaction, so finer-grain locks make no sense.
+     * 禁用子级锁定。这会导致此上下文的所有子上下文变为只读。
+     * 这用于索引和临时表（在这些地方我们不允许更细粒度的锁），
+     * 前者是因为 B+ 树锁定的复杂性，后者是因为临时表只能被一个事务访问，
+     * 所以更细粒度的锁没有意义。
      */
     @Override
     public synchronized void disableChildLocks() {
@@ -32,7 +30,7 @@ public class LoggingLockContext extends LockContext {
     }
 
     /**
-     * Gets the context for the child with name NAME (with a readable version READABLE).
+     * 获取名称为 NAME 的子上下文（具有可读版本 READABLE）。
      */
     @Override
     public synchronized LockContext childContext(String name) {

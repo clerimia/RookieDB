@@ -36,8 +36,84 @@ public class LockUtil {
         LockType explicitLockType = lockContext.getExplicitLockType(transaction);
 
         // TODO(proj4_part2): 实现
-        return;
+        // 1. 如果类型是NL，什么都不做
+        if (requestType == LockType.NL) return;
+
+        if (LockType.substitutable(effectiveLockType, requestType)) {
+            // 2.1 如果当前锁权限已经满足要求了，什么都不做
+            // S->S SIX->S X->X
+            return;
+        } else if (explicitLockType == LockType.IX && requestType == LockType.S) {
+            // 2.2 当前锁类型是 IX 并且请求锁是 S 锁，需要升级为SIX
+            lockContext.promote(transaction, LockType.SIX);
+        } else if (explicitLockType.isIntent()) {
+            // 2.3 如果当前类型的锁是意向锁，
+            // IS -> X 需要使用promote
+            if (explicitLockType == LockType.IS && requestType == LockType.X) {
+                lockContext.promote(transaction, LockType.X);
+            } else {
+                // IS -> S IX -> X SIX -> X直接 escalate
+                lockContext.escalate(transaction);
+            }
+        } else {
+            // 2.4 到这里仅有可能是 S -> X 或者压根没有锁 NL -> S/X
+            // 确保祖先节点有权限
+            ensureParentSufficientLockHeld(parentContext, transaction, requestType);
+            // 这里已经满足需求了，并且做好了升级
+            // 2.4.1 如果是S锁
+            if (explicitLockType == LockType.S) {
+                lockContext.promote(transaction, requestType);
+            } else {
+                // 2.4.1 如果是NL
+                lockContext.acquire(transaction, requestType);
+            }
+        }
+
     }
 
     // TODO(proj4_part2) 添加您想要的任何辅助方法
+    /**
+     * 确保当前事务可以在上执行需要 `requestType` 锁类型的操作。
+     *
+     * 该方法遵循多粒度锁协议，确保从根节点到目标节点的路径上所有父节点都持有足够的锁权限。
+     *
+     * @param parentContext 当前上下文的父节点
+     * @param transaction 事务
+     * @param requestType 子节点需要的锁类型
+     */
+    private static void ensureParentSufficientLockHeld(LockContext parentContext, TransactionContext transaction, LockType requestType) {
+        // base case: 如果父节点为空，直接返回
+        if (parentContext == null) return;
+
+        // 获取父节点上事务持有的显式锁类型
+        LockType explicitLockType = parentContext.getExplicitLockType(transaction);
+
+        // base case: 如果父节点的锁类型已经满足子节点的需求，直接返回
+        if (LockType.canBeParentLock(explicitLockType, requestType)) {
+            return;
+        }
+
+        // 计算父节点需要获取的锁类型
+        LockType newLockType = LockType.parentLock(requestType);
+
+        // base case: 如果没有祖父节点，直接在父节点上获取或升级锁
+        if (parentContext.parentContext() == null) {
+            if (explicitLockType == LockType.NL) {
+                parentContext.acquire(transaction, newLockType);
+            } else {
+                parentContext.promote(transaction, newLockType);
+            }
+            return;
+        }
+
+        // recurse case: 递归确保祖父节点满足父节点的需求
+        ensureParentSufficientLockHeld(parentContext.parentContext(), transaction, newLockType);
+
+        // 然后处理父节点的锁需求
+        if (explicitLockType == LockType.NL) {
+            parentContext.acquire(transaction, newLockType);
+        } else {
+            parentContext.promote(transaction, newLockType);
+        }
+    }
 }

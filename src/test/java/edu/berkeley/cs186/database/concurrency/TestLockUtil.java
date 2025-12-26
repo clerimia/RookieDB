@@ -56,8 +56,7 @@ public class TestLockUtil {
     @Category(SystemTests.class)
     public void testRequestNullTransaction() {
         /**
-         * Calls to ensureSufficientLockHeld should do nothing if there isn't
-         * a current transaction.
+         * 如果当前没有事务，则对 ensureSufficientLockHeld 的调用应该什么都不做。
          */
         lockManager.startLog();
         // Unset the transaction set by setUp()
@@ -70,8 +69,8 @@ public class TestLockUtil {
     @Category(PublicTests.class)
     public void testSimpleAcquire() {
         /**
-         * Requesting S on page 4 should get correct locks on ancestors
-         * (IS on database, IS on table1) and grant S on page 4.
+         * 请求页面4的S锁应该在祖先节点上获取正确的锁
+         * （数据库上的IS锁，table1上的IS锁）并授予页面4上的S锁。
          */
         lockManager.startLog();
         LockUtil.ensureSufficientLockHeld(pageContexts[4], LockType.S);
@@ -86,8 +85,8 @@ public class TestLockUtil {
     @Category(PublicTests.class)
     public void testSimplePromote() {
         /**
-         * Requesting S on page 4 should get IS on database, IS on table1 and
-         * grant S on page 4.
+         * 请求页面4的S锁应该在数据库上获得IS锁，在table1上获得IS锁，
+         * 并在页面4上授予S锁。
          */
         lockManager.startLog();
         LockUtil.ensureSufficientLockHeld(pageContexts[4], LockType.S);
@@ -99,8 +98,8 @@ public class TestLockUtil {
         lockManager.clearLog();
 
         /**
-         * Afterwards, requesting X on page 4 should promote the IS locks on
-         * database and table1 to IX, and promote the S lock on page 4 to X.
+         * 之后，在页面4上请求X锁应该将数据库和table1上的IS锁提升为IX，
+         * 并将页面4上的S锁提升为X。
          */
         LockUtil.ensureSufficientLockHeld(pageContexts[4], LockType.X);
         assertEquals(Arrays.asList(
@@ -114,8 +113,7 @@ public class TestLockUtil {
     @Category(PublicTests.class)
     public void testIStoS() {
         /**
-         * We start by requesting S on page 4 like the previous two tests, and
-         * then release the lock on page 4.
+         * 与前两个测试一样，我们首先请求对页面4的S锁，然后释放页面4上的锁。
          */
         lockManager.startLog();
         LockUtil.ensureSufficientLockHeld(pageContexts[4], LockType.S);
@@ -129,9 +127,9 @@ public class TestLockUtil {
         lockManager.clearLog();
 
         /**
-         * Afterwards we should have IS(database) and IS(table1).
-         * When we request S on table1, we should release the IS lock on table1
-         * and acquire an S lock in its place using acquire-and-release.
+         * 之后我们应该有 IS(database) 和 IS(table1)。
+         * 当我们在 table1 上请求 S 锁时，我们应该释放 table1 上的 IS 锁，
+         * 并使用 acquire-and-release 在其位置获取 S 锁。
          */
         LockUtil.ensureSufficientLockHeld(tableContext, LockType.S);
         assertEquals(Collections.singletonList(
@@ -143,7 +141,7 @@ public class TestLockUtil {
     @Category(PublicTests.class)
     public void testSimpleEscalate() {
         /**
-         * We start by requesting S on page 4 like the previous three tests
+         * 我们首先像前三个测试一样请求页面4上的S锁
          */
         lockManager.startLog();
         LockUtil.ensureSufficientLockHeld(pageContexts[4], LockType.S);
@@ -155,8 +153,7 @@ public class TestLockUtil {
         lockManager.clearLog();
 
         /**
-         * Escalating on the table should release IS(table1) and S(page 4) and
-         * acquire S(table1).
+         * 在表上升级锁应该释放 IS(table1) 和 S(page 4) 并获取 S(table1)。
          */
         LockUtil.ensureSufficientLockHeld(tableContext, LockType.S);
         assertEquals(Collections.singletonList(
@@ -168,8 +165,7 @@ public class TestLockUtil {
     @Category(PublicTests.class)
     public void testIXBeforeIS() {
         /**
-         * We start by requesting X on page 3, which should cause you to get
-         * IX on database and IX on table1 as well.
+         * 我们首先请求对页面3的X锁，这应该导致你在数据库上获得IX锁，在table1上也获得IX锁。
          */
         lockManager.startLog();
         LockUtil.ensureSufficientLockHeld(pageContexts[3], LockType.X);;
@@ -180,15 +176,16 @@ public class TestLockUtil {
         ), lockManager.log);
         lockManager.clearLog();
 
+
         /**
-         * Afterwards, requesting S on page 4 should be possible using the
-         * existing IX lock on table1 without any other acquisitions.
+         * 之后，在页面4上请求S锁应该可以使用table1上已有的IX锁，
+         * 而不需要任何其他获取操作。
          *
-         *          IX(database)
+         *          IX(数据库)
          *                |
-         *           IX(table1)
+         *           IX(表1)
          *             /     \
-         *        X(page3) S(page4)
+         *        X(页面3) S(页面4)
          */
         LockUtil.ensureSufficientLockHeld(pageContexts[4], LockType.S);
         assertEquals(Collections.singletonList(
@@ -200,8 +197,7 @@ public class TestLockUtil {
     @Category(PublicTests.class)
     public void testSIX1() {
         /**
-         * We start by requesting X on page 3, which should cause you to get
-         * IX on database and IX on table1 as well.
+         * 我们首先请求对页面3的X锁，这应该导致你在数据库上获得IX锁，在table1上也获得IX锁。
          */
         lockManager.startLog();
         LockUtil.ensureSufficientLockHeld(pageContexts[3], LockType.X);
@@ -213,8 +209,7 @@ public class TestLockUtil {
         lockManager.clearLog();
 
         /**
-         * Afterwards, requesting S on table1 should promote table1's IX lock
-         * to SIX.
+         * 之后，在table1上请求S锁应该将table1的IX锁提升为SIX。
          */
         LockUtil.ensureSufficientLockHeld(tableContext, LockType.S);
         assertEquals(Collections.singletonList(
@@ -226,12 +221,12 @@ public class TestLockUtil {
     @Category(PublicTests.class)
     public void testSIX2() {
         /**
-         * We request S on page1, S on page2, and X on page 3. This should give
-         * us the following structure:
+         * 我们在page1上请求S锁，在page2上请求S锁，以及在page3上请求X锁。这应该给我们
+         * 如下的结构：
          *
-         *          IX(database)
+         *          IX(数据库)
          *                |
-         *           IX(table1)
+         *           IX(表1)
          *          /     |    \
          *   S(page1) S(page2) X(page3)
          */
@@ -251,11 +246,10 @@ public class TestLockUtil {
         lockManager.clearLog();
 
         /**
-         * Afterwards we request S on table1. Since table1 currently holds IX,
-         * this should promote it to SIX. Remember that promotions to SIX should
-         * release any IS/S descendants, in this case the locks on pages 1 and 2
+         * 之后我们在table1上请求S锁。由于table1当前持有IX锁，
+         * 这应该将其提升为SIX。记住，提升到SIX应该释放任何IS/S的后代锁，在这种情况下是页面1和2上的锁
          *
-         *          IX(database)
+         *            IX(数据库)
          *                |
          *           SIX(table1)
          *          /     |    \

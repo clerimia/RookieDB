@@ -197,6 +197,7 @@ public class LockContext {
             // 2.1 如果是升级到SIX，则需要释放子节点的S/IS锁，需要使用acquireAndRelease()
             // 获取此事务所有持有S/IS锁的子节点的列表
             List<ResourceName> releaseList = sisDescendants(transaction);
+            releaseList.add(name);
             // 调用锁更新
             lockman.acquireAndRelease(transaction, name, newLockType, releaseList);
             // 更新所有被释放了锁的节点的numChildLocks
@@ -205,7 +206,7 @@ public class LockContext {
                 context.updateParentNumChildLocks(transaction, -1);
             }
         } else {
-            // 2.2 如果是其它情况，直接调用锁执行层的promote()就行
+            // 直接升级
             lockman.promote(transaction, name, newLockType);
         }
     }
@@ -257,8 +258,10 @@ public class LockContext {
         List<ResourceName> lockedDescendants = lockedDescendants(transaction);
         // 2.2 开始进行原子的锁升级
         if (lockType == LockType.IS) {
+            lockedDescendants.add(name);
             lockman.acquireAndRelease(transaction, name, LockType.S, lockedDescendants);
         } else if (lockType == LockType.IX || lockType == LockType.SIX) {
+            lockedDescendants.add(name);
             lockman.acquireAndRelease(transaction, name, LockType.X, lockedDescendants);
         }
         // 2.3 更新numChildLocks
@@ -283,13 +286,11 @@ public class LockContext {
             LockContext childContext = contextEntry.getValue();
             // 2.1 创建子节点的ResourceName
             ResourceName childResourceName = new ResourceName(name, childName);
-            // 2.2 获取该子节点的所有锁
-            List<Lock> locks = lockman.getLocks(childResourceName);
-            // 2.3 检查有没有与该事务相关的锁，如果有，直接加入该节点
-            for (Lock lock : locks) {
-                if (lock.transactionNum == transaction.getTransNum()) {
-                    lockedDescendants.add(childResourceName);
-                }
+            // 2.2 查看事务在子节点上的锁类型
+            LockType lockType = lockman.getLockType(transaction, childResourceName);
+            // 2.3 如果不是空就加入
+            if (lockType != LockType.NL) {
+                lockedDescendants.add(childResourceName);
             }
             // 2.4 递归遍历子节点的子树
             lockedDescendants.addAll(childContext.lockedDescendants(transaction));
@@ -306,16 +307,7 @@ public class LockContext {
         if (transaction == null) return LockType.NL;
         // TODO(proj4_part2): 实现
         // 这个是显式锁，只用判断节点显示持有的锁
-        // 1. 获取此节点上的所有锁
-        List<Lock> locks = lockman.getLocks(name);
-        // 2. 判断有没有这个节点的
-        LockType lockType = LockType.NL;
-        for (Lock lock : locks) {
-            if (lock.transactionNum == transaction.getTransNum()) {
-                lockType = lock.lockType;
-            }
-        }
-        return lockType;
+        return lockman.getLockType(transaction, name);
     }
 
     /**
@@ -383,14 +375,11 @@ public class LockContext {
             LockContext childContext = contextEntry.getValue();
             // 2.1 创建子节点的ResourceName
             ResourceName childResourceName = new ResourceName(name, childName);
-            // 2.2 获取该子节点的所有锁
-            List<Lock> locks = lockman.getLocks(childResourceName);
-            // 2.3 检查有没有与该事务相关的S/IS锁，如果有，直接加入该节点
-            for (Lock lock : locks) {
-                if (lock.transactionNum == transaction.getTransNum() &&
-                        (lock.lockType == LockType.S || lock.lockType == LockType.IS)) {
-                    sisDescendants.add(childResourceName);
-                }
+            // 2.2 查看事务在子节点上的锁类型
+            LockType lockType = lockman.getLockType(transaction, childResourceName);
+            // 2.3 如果是S/IS加入
+            if (lockType == LockType.S || lockType == LockType.IS) {
+                sisDescendants.add(childResourceName);
             }
             // 2.4 递归遍历子节点的子树
             sisDescendants.addAll(childContext.sisDescendants(transaction));

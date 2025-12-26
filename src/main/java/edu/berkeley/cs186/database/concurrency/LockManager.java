@@ -406,7 +406,6 @@ public class LockManager {
         return resourceEntry.getTransactionLockType(transaction.getTransNum());
     }
 
-
     /**
      * 返回在`name`上持有的锁列表，按获取顺序排列。
      */
