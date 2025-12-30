@@ -145,7 +145,7 @@ public class TestBPlusTree {
         String leaf2 = "((7 (7 7)) (8 (8 8)) (9 (9 9)))";
         String leaf3 = "((10 (10 10)) (11 (11 11)))";
         String sexp = String.format("(%s 4 %s 7 %s 10 %s)", leaf0, leaf1, leaf2, leaf3);
-        tree.toDotPDFFile("tree11.pdf");
+        //tree.toDotPDFFile("tree11.pdf");
         assertEquals(sexp, tree.toSexp());
     }
 
@@ -157,17 +157,17 @@ public class TestBPlusTree {
         // after each step.
         BPlusTree tree = getBPlusTree(Type.intType(), 1);
         assertEquals("()", tree.toSexp());
-        tree.toDotPDFFile("tree.pdf");
+        // tree.toDotPDFFile("tree.pdf");
 
         // (4)
         tree.put(new IntDataBox(4), new RecordId(4, (short) 4));
         assertEquals("((4 (4 4)))", tree.toSexp());
-        tree.toDotPDFFile("tree1.pdf");
+        // tree.toDotPDFFile("tree1.pdf");
 
         // (4 9)
         tree.put(new IntDataBox(9), new RecordId(9, (short) 9));
         assertEquals("((4 (4 4)) (9 (9 9)))", tree.toSexp());
-        tree.toDotPDFFile("tree2.pdf");
+        // tree.toDotPDFFile("tree2.pdf");
 
         //   (6)
         //  /   \
@@ -176,7 +176,7 @@ public class TestBPlusTree {
         String l = "((4 (4 4)))";
         String r = "((6 (6 6)) (9 (9 9)))";
         assertEquals(String.format("(%s 6 %s)", l, r), tree.toSexp());
-        tree.toDotPDFFile("tree3.pdf");
+        // tree.toDotPDFFile("tree3.pdf");
 
         //     (6)
         //    /   \
@@ -185,7 +185,7 @@ public class TestBPlusTree {
         l = "((2 (2 2)) (4 (4 4)))";
         r = "((6 (6 6)) (9 (9 9)))";
         assertEquals(String.format("(%s 6 %s)", l, r), tree.toSexp());
-        tree.toDotPDFFile("tree4.pdf");
+        // tree.toDotPDFFile("tree4.pdf");
 
         //      (6 7)
         //     /  |  \
@@ -195,7 +195,7 @@ public class TestBPlusTree {
         String m = "((6 (6 6)))";
         r = "((7 (7 7)) (9 (9 9)))";
         assertEquals(String.format("(%s 6 %s 7 %s)", l, m, r), tree.toSexp());
-        tree.toDotPDFFile("tree5.pdf");
+        // tree.toDotPDFFile("tree5.pdf");
 
         //         (7)
         //        /   \
@@ -210,7 +210,7 @@ public class TestBPlusTree {
         l = String.format("(%s 6 %s)", ll, lr);
         r = String.format("(%s 8 %s)", rl, rr);
         assertEquals(String.format("(%s 7 %s)", l, r), tree.toSexp());
-        tree.toDotPDFFile("tree6.pdf");
+        // tree.toDotPDFFile("tree6.pdf");
 
         //            (7)
         //           /   \
@@ -225,7 +225,7 @@ public class TestBPlusTree {
         rr = "((8 (8 8)) (9 (9 9)))";
         l = String.format("(%s 3 %s 6 %s)", ll, lm, lr);
         r = String.format("(%s 8 %s)", rl, rr);
-        tree.toDotPDFFile("tree7.pdf");
+        // tree.toDotPDFFile("tree7.pdf");
         assertEquals(String.format("(%s 7 %s)", l, r), tree.toSexp());
 
 
@@ -245,7 +245,7 @@ public class TestBPlusTree {
         m = String.format("(%s 6 %s)", ml, mr);
         r = String.format("(%s 8 %s)", rl, rr);
         assertEquals(String.format("(%s 4 %s 7 %s)", l, m, r), tree.toSexp());
-        tree.toDotPDFFile("tree8.pdf");
+        // tree.toDotPDFFile("tree8.pdf");
 
         //            (4 7)
         //           /  |  \
@@ -263,7 +263,7 @@ public class TestBPlusTree {
         m = String.format("(%s 6 %s)", ml, mr);
         r = String.format("(%s 8 %s)", rl, rr);
         assertEquals(String.format("(%s 4 %s 7 %s)", l, m, r), tree.toSexp());
-        tree.toDotPDFFile("tree9.pdf");
+        // tree.toDotPDFFile("tree9.pdf");
 
         //            (4 7)
         //           /  |  \
@@ -281,7 +281,7 @@ public class TestBPlusTree {
         m = String.format("(%s 6 %s)", ml, mr);
         r = String.format("(%s 8 %s)", rl, rr);
         assertEquals(String.format("(%s 4 %s 7 %s)", l, m, r), tree.toSexp());
-        tree.toDotPDFFile("tree10.pdf");
+        // tree.toDotPDFFile("tree10.pdf");
 
         //            (4 7)
         //           /  |  \
