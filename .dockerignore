@@ -1,0 +1,43 @@
+# Git 相关
+.git
+.gitignore
+
+# IDE 相关
+.idea
+.vscode
+*.iml
+.classpath
+.project
+.settings
+
+# 构建产物
+target/
+*.class
+
+# 日志和临时文件
+*.log
+*.tmp
+*.swp
+*~
+
+# 开发容器配置（Docker 构建不需要）
+.devcontainer
+
+# 文档和非必需文件
+*.md
+!README.md
+images/
+
+# 测试数据和演示文件
+demo/*
+review/
+
+# 压缩文件
+*.zip
+
+# OS 相关
+.DS_Store
+Thumbs.db
+
+# Maven 相关
+.mvn/wrapper/maven-wrapper.jar
