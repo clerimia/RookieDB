@@ -25,3 +25,6 @@ target/*
 hw*.zip
 *.zip
 demo/*
+
+# ignore /demo /review
+review/*
