@@ -85,6 +85,39 @@ mvn exec:java -Dexec.mainClass="edu.berkeley.cs186.database.cli.Server"
 
 **前提条件**：确保 Docker Desktop 已启动并正常运行
 
+#### 方式一：使用 Docker Compose（推荐）
+
+```bash
+# 启动服务（自动构建镜像）
+docker-compose up -d
+
+# 查看服务状态
+docker-compose ps
+
+# 查看日志
+docker-compose logs -f rookiedb
+
+# 停止服务
+docker-compose stop
+
+# 启动服务
+docker-compose start
+
+# 重启服务
+docker-compose restart
+
+# 停止并删除容器（保留数据卷）
+docker-compose down
+
+# 停止并删除容器和数据卷
+docker-compose down -v
+
+# 重新构建并启动
+docker-compose up -d --build
+```
+
+#### 方式二：直接使用 Docker
+
 ```bash
 # 1. 构建镜像（第一次构建可能需要几分钟）
 docker build -t rookiedb .
@@ -128,6 +161,16 @@ docker run -d -p 18600:18600 \
   rookiedb
 ```
 
+#### 配置说明
+
+**docker-compose.yml 配置项**：
+- `ports`: 端口映射 18600:18600
+- `environment`: JVM 内存配置
+- `volumes`: 数据持久化到命名卷 `rookiedb-data`
+- `restart`: 容器自动重启策略
+- `healthcheck`: 健康检查，每30秒检查一次
+- `networks`: 独立网络隔离
+
 ### 连接到数据库
 
 **使用 Python 客户端：**
@@ -140,6 +183,24 @@ python client.py
 nc localhost 18600
 # 或
 netcat localhost 18600
+```
+
+**从 Docker 容器内连接：**
+```bash
+# 进入容器
+docker exec -it rookiedb-server bash
+
+# 在容器内连接
+nc localhost 18600
+```
+
+**使用 docker-compose 连接：**
+```bash
+# 查看服务日志（实时）
+docker-compose logs -f rookiedb
+
+# 在容器中执行命令
+docker-compose exec rookiedb nc localhost 18600
 ```
 
 **SQL 查询示例：**
