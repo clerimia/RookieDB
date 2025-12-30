@@ -53,9 +53,7 @@ public class BufferManager implements AutoCloseable {
     private long numIOs = 0;
 
     /**
-     * Buffer frame, containing information about the loaded page, wrapped around the
-     * underlying byte array. Free frames use the index field to create a (singly) linked
-     * list between free frames.
+     * 缓冲帧，包含有关加载页面的信息，包装在底层字节数组周围。空闲帧使用索引字段在空闲帧之间创建（单向）链表。
      */
     class Frame extends BufferFrame {
         private static final int INVALID_INDEX = Integer.MIN_VALUE;
@@ -86,8 +84,7 @@ public class BufferManager implements AutoCloseable {
         }
 
         /**
-         * Pin buffer frame; cannot be evicted while pinned. A "hit" happens when the
-         * buffer frame gets pinned.
+         * 锁定缓冲帧；锁定时无法被驱逐。当缓冲帧被锁定时会发生"命中"。
          */
         @Override
         public void pin() {
@@ -101,7 +98,7 @@ public class BufferManager implements AutoCloseable {
         }
 
         /**
-         * Unpin buffer frame.
+         * 解锁缓冲帧。
          */
         @Override
         public void unpin() {
@@ -110,7 +107,7 @@ public class BufferManager implements AutoCloseable {
         }
 
         /**
-         * @return whether this frame is valid
+         * @return 此帧是否有效
          */
         @Override
         public boolean isValid() {
@@ -118,14 +115,14 @@ public class BufferManager implements AutoCloseable {
         }
 
         /**
-         * @return whether this frame's page has been freed
+         * @return 此帧的页面是否已被释放
          */
         private boolean isFreed() {
             return this.index < 0 && this.index != INVALID_INDEX;
         }
 
         /**
-         * Invalidates the frame, flushing it if necessary.
+         * 使帧无效，必要时刷新它。
          */
         private void invalidate() {
             if (this.isValid()) {
@@ -136,7 +133,7 @@ public class BufferManager implements AutoCloseable {
         }
 
         /**
-         * Marks the frame as free.
+         * 将帧标记为空闲。
          */
         private void setFree() {
             if (isFreed()) {
@@ -157,7 +154,7 @@ public class BufferManager implements AutoCloseable {
         }
 
         /**
-         * @return page number of this frame
+         * @return 此帧的页号
          */
         @Override
         public long getPageNum() {
@@ -165,7 +162,7 @@ public class BufferManager implements AutoCloseable {
         }
 
         /**
-         * Flushes this buffer frame to disk, but does not unload it.
+         * 将此缓冲帧刷新到磁盘，但不卸载它。
          */
         @Override
         void flush() {
@@ -191,10 +188,10 @@ public class BufferManager implements AutoCloseable {
         }
 
         /**
-         * Read from the buffer frame.
-         * @param position position in buffer frame to start reading
-         * @param num number of bytes to read
-         * @param buf output buffer
+         * 从缓冲帧读取。
+         * @param position 缓冲帧中开始读取的位置
+         * @param num 要读取的字节数
+         * @param buf 输出缓冲区
          */
         @Override
         void readBytes(short position, short num, byte[] buf) {
@@ -211,10 +208,10 @@ public class BufferManager implements AutoCloseable {
         }
 
         /**
-         * Write to the buffer frame, and mark frame as dirtied.
-         * @param position position in buffer frame to start writing
-         * @param num number of bytes to write
-         * @param buf input buffer
+         * 写入缓冲帧，并将帧标记为已修改。
+         * @param position 缓冲帧中开始写入的位置
+         * @param num 要写入的字节数
+         * @param buf 输入缓冲区
          */
         @Override
         void writeBytes(short position, short num, byte[] buf) {
@@ -246,8 +243,8 @@ public class BufferManager implements AutoCloseable {
         }
 
         /**
-         * Requests a valid Frame object for the page (if invalid, a new Frame object is returned).
-         * Page is pinned on return.
+         * 请求页面的有效Frame对象（如果无效，则返回新的Frame对象）。
+         * 页面在返回时被锁定。
          */
         @Override
         Frame requestValidFrame() {
@@ -292,9 +289,8 @@ public class BufferManager implements AutoCloseable {
         }
 
         /**
-         * Generates (offset, length) pairs for where buf differs from contents. Merges nearby
-         * pairs (where nearby is defined as pairs that have fewer than BufferManager.RESERVED_SPACE
-         * bytes of unmodified data between them).
+         * 生成buf与contents不同的位置的（偏移量，长度）对。合并附近的对
+         * （其中附近定义为对之间有少于BufferManager.RESERVED_SPACE字节的未修改数据）。
          */
         private List<Pair<Integer, Integer>> getChangedBytes(int offset, int num, byte[] buf) {
             List<Pair<Integer, Integer>> ranges = new ArrayList<>();
@@ -341,11 +337,11 @@ public class BufferManager implements AutoCloseable {
     }
 
     /**
-     * Creates a new buffer manager.
+     * 创建新的缓冲管理器。
      *
-     * @param diskSpaceManager the underlying disk space manager
-     * @param bufferSize size of buffer (in pages)
-     * @param evictionPolicy eviction policy to use
+     * @param diskSpaceManager 底层磁盘空间管理器
+     * @param bufferSize 缓冲区大小（以页为单位）
+     * @param evictionPolicy 要使用的驱逐策略
      */
     public BufferManager(DiskSpaceManager diskSpaceManager, RecoveryManager recoveryManager,
                          int bufferSize, EvictionPolicy evictionPolicy) {
@@ -386,18 +382,17 @@ public class BufferManager implements AutoCloseable {
     }
 
     /**
-     * Fetches a buffer frame with data for the specified page. Reuses existing
-     * buffer frame if page already loaded in memory. Pins the buffer frame.
-     * Cannot be used outside the package.
+     * 获取指定页面的缓冲帧数据。如果页面已加载到内存中，则重用现有的缓冲帧。锁定缓冲帧。
+     * 不能在包外部使用。
      *
-     * @param pageNum page number
-     * @return buffer frame with specified page loaded
+     * @param pageNum 页号
+     * @return 包含指定页面的缓冲帧
      */
     Frame fetchPageFrame(long pageNum) {
         this.managerLock.lock();
         Frame newFrame;
         Frame evictedFrame;
-        // figure out what frame to load data to, and update manager state
+        // 确定要加载数据到哪个帧，并更新管理器状态
         try {
             if (!this.diskSpaceManager.pageAllocated(pageNum)) {
                 throw new PageException("page " + pageNum + " not allocated");
@@ -407,7 +402,7 @@ public class BufferManager implements AutoCloseable {
                 newFrame.pin();
                 return newFrame;
             }
-            // prioritize free frames over eviction
+            // 优先使用空闲帧而不是驱逐
             if (this.firstFreeIndex < this.frames.length) {
                 evictedFrame = this.frames[this.firstFreeIndex];
                 evictedFrame.setUsed();
@@ -427,13 +422,13 @@ public class BufferManager implements AutoCloseable {
         } finally {
             this.managerLock.unlock();
         }
-        // flush evicted frame
+        // 刷新被驱逐的帧
         try {
             evictedFrame.invalidate();
         } finally {
             evictedFrame.frameLock.unlock();
         }
-        // read new page into frame
+        // 读取新页面到帧中
         try {
             newFrame.pageNum = pageNum;
             newFrame.pin();
@@ -449,21 +444,21 @@ public class BufferManager implements AutoCloseable {
     }
 
     /**
-     * Fetches the specified page, with a loaded and pinned buffer frame.
+     * 获取指定页面，带有一个已加载和锁定的缓冲帧。
      *
-     * @param parentContext lock context of the **parent** of the page being fetched
-     * @param pageNum       page number]
-     * @return specified page
+     * @param parentContext 被获取页面的**父级**的锁上下文
+     * @param pageNum       页号
+     * @return 指定页面
      */
     public Page fetchPage(LockContext parentContext, long pageNum) {
         return this.frameToPage(parentContext, pageNum, this.fetchPageFrame(pageNum));
     }
 
     /**
-     * Fetches a buffer frame for a new page. Pins the buffer frame. Cannot be used outside the package.
+     * 获取新页面的缓冲帧。锁定缓冲帧。不能在包外部使用。
      *
-     * @param partNum partition number for new page
-     * @return buffer frame for the new page
+     * @param partNum 新页面的分区号
+     * @return 新页面的缓冲帧
      */
     Frame fetchNewPageFrame(int partNum) {
         long pageNum = this.diskSpaceManager.allocPage(partNum);
@@ -476,11 +471,11 @@ public class BufferManager implements AutoCloseable {
     }
 
     /**
-     * Fetches a new page, with a loaded and pinned buffer frame.
+     * 获取新页面，带有一个已加载和锁定的缓冲帧。
      *
-     * @param parentContext parent lock context of the new page
-     * @param partNum       partition number for new page
-     * @return the new page
+     * @param parentContext 新页面的父锁上下文
+     * @param partNum       分区号
+     * @return 新页面
      */
     public Page fetchNewPage(LockContext parentContext, int partNum) {
         Frame newFrame = this.fetchNewPageFrame(partNum);
@@ -488,11 +483,11 @@ public class BufferManager implements AutoCloseable {
     }
 
     /**
-     * Frees a page - evicts the page from cache, and tells the disk space manager
-     * that the page is no longer needed. Page must be pinned before this call,
-     * and cannot be used after this call (aside from unpinning).
+     * 释放页面 - 从缓存中驱逐页面，并告知磁盘空间管理器
+     * 该页面不再需要。调用此方法前页面必须被锁定，
+     * 调用后不能使用此页面（除了取消锁定）。
      *
-     * @param page page to free
+     * @param page 要释放的页面
      */
     public void freePage(Page page) {
         this.managerLock.lock();
@@ -514,11 +509,11 @@ public class BufferManager implements AutoCloseable {
     }
 
     /**
-     * Frees a partition - evicts all relevant pages from cache, and tells the disk space manager
-     * that the partition is no longer needed. No pages in the partition may be pinned before this call,
-     * and cannot be used after this call.
+     * 释放分区 - 从缓存中驱逐所有相关页面，并告知磁盘空间管理器
+     * 该分区不再需要。调用此方法前分区中的任何页面都不能被锁定，
+     * 调用后不能使用这些页面。
      *
-     * @param partNum partition number to free
+     * @param partNum 要释放的分区号
      */
     public void freePart(int partNum) {
         this.managerLock.lock();
@@ -541,9 +536,9 @@ public class BufferManager implements AutoCloseable {
     }
 
     /**
-     * Calls flush on the frame of a page and unloads the page from the frame. If the page
-     * is not loaded, this does nothing.
-     * @param pageNum page number of page to evict
+     * 对页面的帧调用flush，并从帧中卸载页面。如果页面
+     * 未加载，则此操作不执行任何操作。
+     * @param pageNum 要驱逐的页面号
      */
     public void evict(long pageNum) {
         managerLock.lock();
@@ -557,6 +552,9 @@ public class BufferManager implements AutoCloseable {
         }
     }
 
+    /**
+     * 驱逐页面
+     * */
     private void evict(int i) {
         Frame frame = frames[i];
         frame.frameLock.lock();
@@ -576,7 +574,7 @@ public class BufferManager implements AutoCloseable {
     }
 
     /**
-     * Calls evict on every frame in sequence.
+     * 按顺序对每个帧调用驱逐。
      */
     public void evictAll() {
         for (int i = 0; i < frames.length; ++i) {
@@ -585,10 +583,10 @@ public class BufferManager implements AutoCloseable {
     }
 
     /**
-     * Calls the passed in method with the page number of every loaded page.
-     * @param process method to consume page numbers. The first parameter is the page number,
-     *                and the second parameter is a boolean indicating whether the page is dirty
-     *                (has an unflushed change).
+     * 使用每个已加载页面的页号调用传入的方法。
+     * @param process 消耗页号的方法。第一个参数是页号，
+     *                第二个参数是布尔值，指示页面是否已修改
+     *                （有未刷新的更改）。
      */
     public void iterPageNums(BiConsumer<Long, Boolean> process) {
         for (Frame frame : frames) {
@@ -604,10 +602,9 @@ public class BufferManager implements AutoCloseable {
     }
 
     /**
-     * Get the number of I/Os since the buffer manager was started, excluding anything used in disk
-     * space management, and not counting allocation/free. This is not really useful except as a
-     * relative measure.
-     * @return number of I/Os
+     * 获取自缓冲管理器启动以来的I/O次数，不包括磁盘空间管理中使用的任何内容，
+     * 也不计算分配/释放。这除了作为相对测量外，实际上没有用处。
+     * @return I/O次数
      */
     public long getNumIOs() {
         return numIOs;
@@ -629,11 +626,11 @@ public class BufferManager implements AutoCloseable {
     }
 
     /**
-     * Wraps a frame in a page object.
-     * @param parentContext parent lock context of the page
-     * @param pageNum page number
-     * @param frame frame for the page
-     * @return page object
+     * 将帧包装在页面对象中。
+     * @param parentContext 页面的父锁上下文
+     * @param pageNum 页号
+     * @param frame 页面的帧
+     * @return 页面对象
      */
     private Page frameToPage(LockContext parentContext, long pageNum, Frame frame) {
         return new Page(parentContext.childContext(pageNum), frame);

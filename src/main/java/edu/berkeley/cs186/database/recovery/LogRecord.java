@@ -12,16 +12,16 @@ import java.util.*;
 import java.util.function.Consumer;
 
 /**
- * An record of the log.
+ * 日志的一条记录。
  */
 public abstract class LogRecord {
-    // LSN of this record, or null if not set - this is not actually
-    // stored on disk, and is only set by the log manager for convenience
+    // 此记录的LSN，如果没有设置则为null - 这实际上
+    // 不存储在磁盘上，仅由日志管理器为了方便而设置
     protected Long LSN;
-    // type of this record
+    // 此记录的类型
     protected LogType type;
 
-    // method called when redo() is called - only used for testing
+    // redo()被调用时调用的方法 - 仅用于测试
     private static Consumer<LogRecord> onRedo = t -> {};
 
     protected LogRecord(LogType type) {
@@ -30,14 +30,14 @@ public abstract class LogRecord {
     }
 
     /**
-     * @return type of log entry as enumerated in LogType
+     * @return LogType中枚举的日志条目类型
      */
     public final LogType getType() {
         return type;
     }
 
     /**
-     * @return LSN of the log entry
+     * @return 日志条目的LSN
      */
     public final long getLSN() {
         if (LSN == null) {
@@ -47,48 +47,48 @@ public abstract class LogRecord {
     }
 
     /**
-     * Sets the LSN of a record
-     * @param LSN LSN intended to assign to a record
+     * 设置记录的LSN
+     * @param LSN 期望分配给记录的LSN
      */
     final void setLSN(Long LSN) {
         this.LSN = LSN;
     }
 
     /**
-     * Gets the transaction number of a log record, if applicable
-     * @return optional instance containing transaction number
+     * 获取日志记录的事务号（如果适用）
+     * @return 包含事务号的Optional实例
      */
     public Optional<Long> getTransNum() {
         return Optional.empty();
     }
 
     /**
-     * Gets the LSN of the previous record written by the same transaction
-     * @return optional instance containing prevLSN
+     * 获取同一事务写入的上一条记录的LSN
+     * @return 包含prevLSN的Optional实例
      */
     public Optional<Long> getPrevLSN() {
         return Optional.empty();
     }
 
     /**
-     * Gets the LSN of record to undo next, if applicable
-     * @return optional instance containing transaction number
+     * 获取要撤销的下一条记录的LSN（如果适用）
+     * @return 包含事务号的Optional实例
      */
     public Optional<Long> getUndoNextLSN() {
         return Optional.empty();
     }
 
     /**
-     * @return optional instance containing page number
-     * of data that is changed by transaction
+     * @return 包含页面号的Optional实例
+     * 由事务更改的数据的页面号
      */
     public Optional<Long> getPageNum() {
         return Optional.empty();
     }
 
     /**
-     * @return optional instance containing partition number
-     * of data that is changed by transaction
+     * @return 包含分区号的Optional实例
+     * 由事务更改的数据的分区号
      */
     public Optional<Integer> getPartNum() {
         return Optional.empty();
@@ -99,58 +99,55 @@ public abstract class LogRecord {
     }
 
     /**
-     * Gets the dirty page table written to the log record, if applicable.
+     * 获取写入日志记录的脏页表（如果适用）。
      */
     public Map<Long, Long> getDirtyPageTable() {
         return Collections.emptyMap();
     }
 
     /**
-     * Gets the transaction table written to the log record, if applicable.
+     * 获取写入日志记录的事务表（如果适用）。
      */
     public Map<Long, Pair<Transaction.Status, Long>> getTransactionTable() {
         return Collections.emptyMap();
     }
 
     /**
-     * Gets the table of transaction numbers mapped to page numbers of
-     * pages that were touched by the corresponding transaction.
+     * 获取事务号映射到相应事务所触及页面的页面号的表。
      */
     public Map<Long, List<Long>> getTransactionTouchedPages() {
         return Collections.emptyMap();
     }
 
     /**
-     * @return boolean indicating whether transaction recorded in the
-     * log record is undoable
+     * @return 指示记录在日志中的事务是否可撤销的布尔值
      */
     public boolean isUndoable() {
         return false;
     }
 
     /**
-     * @return boolean indicating whether transaction recorded in the
-     * log record is redoable
+     * @return 指示记录在日志中的事务是否可重做的布尔值
      */
     public boolean isRedoable() {
         return false;
     }
 
     /**
-     * Returns a CLR undoing this log record, but does not execute the undo.
-     * @param lastLSN lastLSN for the transaction. This will be used as the
-     *                prevLSN of the returned CLR.
-     * @return the CLR corresponding to this log record.
+     * 返回撤销此日志记录的CLR，但不执行撤销。
+     * @param lastLSN 事务的lastLSN。这将用作返回的CLR的
+     *                prevLSN。
+     * @return 对应于此日志记录的CLR。
      */
     public LogRecord undo(long lastLSN) {
         throw new UnsupportedOperationException("cannot undo this record: " + this);
     }
 
     /**
-     * Performs the change described by this log record
-     * @param rm the database's recovery manager.
-     * @param dsm the database's disk space manager
-     * @param bm the database's buffer manager
+     * 执行此日志记录所描述的更改
+     * @param rm 数据库的恢复管理器。
+     * @param dsm 数据库的磁盘空间管理器
+     * @param bm 数据库的缓冲区管理器
      */
     public void redo(RecoveryManager rm, DiskSpaceManager dsm, BufferManager bm) {
         onRedo.accept(this);
@@ -160,19 +157,19 @@ public abstract class LogRecord {
     }
 
     /**
-     * Log records are serialized as follows:
+     * 日志记录序列化如下：
      *
-     *  - a 1-byte integer indicating the type of log record, followed by
-     *  - a variable number of bytes depending on log record (see specific
-     *    LogRecord implementations for details).
+     *  - 一个1字节的整数，指示日志记录的类型，后跟
+     *  - 可变数量的字节，具体取决于日志记录（详见
+     *    LogRecord实现细节）。
      */
     public abstract byte[] toBytes();
 
     /**
-     * Load a log record from a buffer.
-     * @param buf Buffer containing a serialized log record.
-     * @return The log record, or Optional.empty() if logType == 0 (marker for no record)
-     * @throws UnsupportedOperationException if log type is not recognized
+     * 从缓冲区加载日志记录。
+     * @param buf 包含序列化日志记录的缓冲区。
+     * @return 日志记录，如果logType == 0（表示无记录的标记）则返回Optional.empty()
+     * @throws UnsupportedOperationException 如果未识别日志类型
      */
     public static Optional<LogRecord> fromBytes(Buffer buf) {
         int type;
@@ -223,9 +220,9 @@ public abstract class LogRecord {
     }
 
     /**
-     * Set the method called whenever redo() is called on a LogRecord. This
-     * is only to be used for testing.
-     * @param handler method to be called whenever redo() is called
+     * 设置在LogRecord上调用redo()时调用的方法。这只
+     * 应用于测试。
+     * @param handler 每次调用redo()时要调用的方法
      */
     static void onRedoHandler(Consumer<LogRecord> handler) {
         onRedo = handler;

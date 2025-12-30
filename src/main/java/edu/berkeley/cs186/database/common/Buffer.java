@@ -1,36 +1,29 @@
 package edu.berkeley.cs186.database.common;
 
 /**
- * Buffers are used to store and sequences of bytes, for example when we want
- * to serialize information into a byte sequence that can be stored on disk
- * and deserialize the sequence back into a Java object. Put methods will return
- * the buffer itself allowing you to chain together calls to put. For example,
- * calling:
+ * 缓冲区用于存储字节序列，例如当我们需要将信息序列化为可存储在磁盘上的字节序列，
+ * 并将序列反序列化回 Java 对象时。Put 方法将返回缓冲区本身，允许将 put 调用链接在一起。例如：
  *
  * ByteBuffer b = ByteBuffer.allocate(6);
- * // Buffer contents: empty
+ * // 缓冲区内容：空
  * b.putChar('c').putChar('s').putInt(186);
- * // Buffer contents: |0x63, 0x73, 0x00, 0x00, 0x00, 0xBA|
+ * // 缓冲区内容：|0x63, 0x73, 0x00, 0x00, 0x00, 0xBA|
  *
- * Calling get will deserialize bytes from the beginning of the buffer (or the
- * specified index) and move the beginning of the buffer to the next unread
- * byte. Reusing the buffer from above:
+ * 调用 get 将从缓冲区的开头（或指定索引）反序列化字节，并将缓冲区开头移动到下一个未读字节。
+ * 重用上面的缓冲区：
  *
  * char char1 = b.getChar(); // char1 = 'c'
- * // Buffer contents: |0x73, 0x00, 0x00, 0x00, 0xBA|
- * char char2 = b.getChar(): // char2 = 's'
- * // Buffer contents: |0x00, 0x00, 0x00, 0xBA|
- * int num = b.getInt(): // num = 186
- * // Buffer contents: empty
+ * // 缓冲区内容：|0x73, 0x00, 0x00, 0x00, 0xBA|
+ * char char2 = b.getChar(); // char2 = 's'
+ * // 缓冲区内容：|0x00, 0x00, 0x00, 0xBA|
+ * int num = b.getInt(); // num = 186
+ * // 缓冲区内容：空
  *
- * The buffer has no way of knowing what the original data types were, so
- * its important that you deserialize the contents in the same way as it was
- * serialized. For example, calling b.getInt() immediately would have attempted
- * to read the first 4 bytes (0x63, 0x73, 0x00, 0x00) in as an integer, despite
- * the first two bytes being part of characters, and not an integer.
+ * 缓冲区无法知道原始数据类型是什么，因此需要以与序列化时相同的方式反序列化内容。
+ * 例如，立即调用 b.getInt() 将尝试将前 4 个字节（0x63, 0x73, 0x00, 0x00）作为整数读取，
+ * 尽管前两个字节是字符的一部分，而不是整数。
  *
- * In general you'll want to call your get operations in the same order as the
- * put operations took place.
+ * 通常，您需要按照 put 操作发生的相同顺序调用 get 操作。
  */
 public interface Buffer {
     Buffer get(byte[] dst, int offset, int length);

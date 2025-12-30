@@ -8,11 +8,11 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 
 class TransactionTableEntry {
-    // Transaction object for the transaction.
+    // 事务的事务对象
     Transaction transaction;
-    // lastLSN of transaction, or 0 if no log entries for the transaction exist.
+    // 事务的最后LSN，如果事务不存在日志条目则为0
     long lastLSN = 0;
-    // map of transaction's savepoints
+    // 事务保存点的映射
     private Map<String, Long> savepoints = new HashMap<>();
 
     TransactionTableEntry(Transaction transaction) {

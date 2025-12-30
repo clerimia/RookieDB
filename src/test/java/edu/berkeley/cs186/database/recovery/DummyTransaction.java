@@ -21,8 +21,7 @@ import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
 /**
- * Dummy transaction that does nothing except maintain transaction
- * number and status.
+ *事务，除了维护事务号和状态外不做任何事情。
  */
 class DummyTransaction extends Transaction {
     private long transNum;

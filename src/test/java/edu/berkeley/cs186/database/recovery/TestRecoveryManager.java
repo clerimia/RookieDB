@@ -32,9 +32,9 @@ import static org.junit.Assert.*;
 
 @Category({Proj5Tests.class})
 public class TestRecoveryManager {
-    private String testDir;
-    private ARIESRecoveryManager recoveryManager;
-    private LogManager logManager;
+    private String testDir; // 测试文件夹
+    private ARIESRecoveryManager recoveryManager;   // d恢复管理器
+    private LogManager logManager; //
     private DiskSpaceManager diskSpaceManager;
     private BufferManager bufferManager;
     private Map<Long, Long> dirtyPageTable;
@@ -62,11 +62,12 @@ public class TestRecoveryManager {
         recoveryManager.close();
     }
 
+
     /**
-     * Loads the recovery manager from disk.
+     * 从磁盘加载恢复管理器。
      *
-     * @param dir testDir
-     * @return recovery manager, loaded from disk
+     * @param dir 测试目录
+     * @return 从磁盘加载的恢复管理器
      */
     protected ARIESRecoveryManager loadRecoveryManager(String dir) {
         ARIESRecoveryManager recoveryManager = new ARIESRecoveryManager(DummyTransaction::create);
@@ -82,7 +83,7 @@ public class TestRecoveryManager {
             }
             isLoaded = false;
         } catch (IllegalStateException e) {
-            // already loaded
+            // 已经加载过了
         }
         recoveryManager.setManagers(diskSpaceManager, bufferManager);
         if (!isLoaded) {
@@ -97,45 +98,45 @@ public class TestRecoveryManager {
     }
 
     /**
-     * Tests transaction abort. Transactions T1 and T2 are created, T2 aborts:
-     * Checks:
-     *  - Transaction table's lastLSN for T1 is the abort record LSN
-     *  - T1 and T2's transaction statuses are correct
+     * 测试事务中止。创建事务 T1 和 T2，T1 中止：
+     * 检查：
+     *  - 事务表中 T1 的 lastLSN 是中止记录的 LSN
+     *  - T1 和 T2 的事务状态是正确的
      */
     @Test
     @Category(PublicTests.class)
     public void testAbort() {
-        // Create T1
+        // 创建 T1
         Transaction transaction1 = DummyTransaction.create(1L);
         recoveryManager.startTransaction(transaction1);
 
-        // Create T2
+        // 创建 T2
         Transaction transaction2 = DummyTransaction.create(2L);
         recoveryManager.startTransaction(transaction2);
 
-        // T1 aborts
+        // T1 中止
         long abortLSN = recoveryManager.abort(1L);
 
-        // lastLSN should be updated to the LSN of the abort log
+        // lastLSN 应该更新为中止日志的 LSN
         assertEquals(abortLSN, transactionTable.get(1L).lastLSN);
 
-        // T1 should be in the aborting state, T2 should still be running
+        // T1 应该处于中止状态，T2 应该仍在运行
         assertEquals(Transaction.Status.ABORTING, transactionTable.get(1L).transaction.getStatus());
         assertEquals(Transaction.Status.RUNNING, transactionTable.get(2L).transaction.getStatus());
     }
 
+
     /**
-     * Tests that aborting + ending a transaction correctly undoes its changes:
-     * 1. Sets up and executes a log w/ 5 log records (see code for record types),
-     *    the transaction table. T2 completes aborting. T1 aborts but does not end
-     * 2. After aborting, RecoveryManager.end() is called on T1
-     *    Checks:
-     *      - AllocPartLogRecord and UpdatePageLogRecord are undone
-     *      - Nothing else is undone
-     * 3. Checks state after aborting:
-     *      - Log contains correct CLR records and EndTransaction record
-     *      - DPT contains 10000000001L modified from undoing the page update
-     *      - Transaction table (empty) and transaction status have correct values.
+     * 测试中止+结束事务是否正确地撤销其更改：
+     * 1. 设置并执行包含5个日志记录的日志（参见代码中的记录类型），事务表。T2 完成中止。T1 中止但不结束
+     * 2. 中止后，对 T1 调用 RecoveryManager.end()
+     *    检查：
+     *      - AllocPartLogRecord 和 UpdatePageLogRecord 被撤销
+     *      - 没有其他记录被撤销
+     * 3. 检查中止后的状态：
+     *      - 日志包含正确的 CLR 记录和 EndTransaction 记录
+     *      - DPT 包含 10000000001L，由页面更新撤销修改
+     *      - 事务表（空）和事务状态具有正确的值。
      */
     @Test
     @Category(PublicTests.class)
@@ -146,50 +147,50 @@ public class TestRecoveryManager {
         Transaction t1 = DummyTransaction.create(1L);
         Transaction t2 = DummyTransaction.create(2L);
 
-        // 1. Set up transactions, append and execute logs
+        // 1. 设置事务，追加和执行日志
         recoveryManager.startTransaction(t1);
         recoveryManager.startTransaction(t2);
 
-        // The following logs are appended
-        // Record Type      | transNum | LSN     | prevLSN | Other Details
+        // 追加以下日志 注意LSN = 0的记录是MasterLogRecord
+        // 记录类型         | transNum | LSN     | prevLSN | 其他详情
         // -----------------+----------+---------+---------+---------------
         // UpdatePage       |        1 |   10000 |       0 | pageNum=10000000001
         // AllocPart        |        1 |   20000 |   10000 | partNum=7
         // AbortTransaction |        2 |   30000 |       0 |
         // AbortTransaction |        1 |   40000 |   20000 |
         // EndTransaction   |        2 |   50000 |   30000 |
-        logManager.flushToLSN(9999L); // force next record to be LSN 10000L
+        logManager.flushToLSN(9999L); // 强制下一条记录为 LSN 10000L
         LogRecord updateRecord = new UpdatePageLogRecord(t1.getTransNum(), 10000000001L, 0L, (short) 71, before, after);
         logManager.appendToLog(updateRecord);
-        logManager.flushToLSN(19999L); // force next record to be LSN 20000L
+        logManager.flushToLSN(19999L); // 强制下一条记录为 LSN 20000L
         LogRecord allocRecord = new AllocPartLogRecord(t1.getTransNum(), 7, 10000L);
         logManager.appendToLog(allocRecord);
-        logManager.flushToLSN(29999L); // force next record to be LSN 30000L
-        logManager.appendToLog(new AbortTransactionLogRecord(t2.getTransNum(), 0L)); // random log
-        logManager.flushToLSN(39999L); // force next record to be LSN 40000L
+        logManager.flushToLSN(29999L); // 强制下一条记录为 LSN 30000L
+        logManager.appendToLog(new AbortTransactionLogRecord(t2.getTransNum(), 0L)); // 随机日志
+        logManager.flushToLSN(39999L); // 强制下一条记录为 LSN 40000L
         logManager.appendToLog(new AbortTransactionLogRecord(t1.getTransNum(), 20000L));
-        logManager.flushToLSN(49999L); // force next record to be LSN 50000L
-        logManager.appendToLog(new EndTransactionLogRecord(t2.getTransNum(), 30000L)); // random log
-        logManager.flushToLSN(59999L); // force next record to be LSN 60000L
+        logManager.flushToLSN(49999L); // 强制下一条记录为 LSN 50000L
+        logManager.appendToLog(new EndTransactionLogRecord(t2.getTransNum(), 30000L)); // 随机日志
+        logManager.flushToLSN(59999L); // 强制下一条记录为 LSN 60000L
 
-        // Execute the update/alloc records so that changes can be undone
+        // 执行 update/alloc 记录以便更改可以被撤销
         updateRecord.redo(recoveryManager, diskSpaceManager, bufferManager);
         allocRecord.redo(recoveryManager, diskSpaceManager, bufferManager);
 
-        // Empty out the DPT
-        recoveryManager.redoComplete = true; // Must be true for DPT to flush
+        // 清空 DPT
+        recoveryManager.redoComplete = true; // 必须为 true 才能刷新 DPT
         bufferManager.evictAll();
 
-        // Manually set T1's lastLSN to the Abort record's LSN. Update status.
+        // 手动设置 T1 的 lastLSN 为中止记录的 LSN。更新状态。
         recoveryManager.transactionTable.get(t1.getTransNum()).lastLSN = 40000L;
         t1.setStatus(Transaction.Status.ABORTING);
 
-        // Manually remove T2 from transaction table. Update status.
+        // 手动从事务表中移除 T2。更新状态。
         recoveryManager.transactionTable.remove(t2.getTransNum());
         t2.setStatus(Transaction.Status.COMPLETE);
 
-        // 2. T1 ends. T1's alloc record and update record should be undone
-        ///   (redo should be called on their CLRs)
+        // 2. T1 结束。T1 的 alloc 记录和 update 记录应该被撤销
+        ///   （应该在它们的 CLR 上调用 redo）
         LogRecord expectedAllocCLR = allocRecord.undo(40000L);
         expectedAllocCLR.setLSN(60000L);
         LogRecord expectedUpdateCLR = updateRecord.undo(60000L);
@@ -202,74 +203,72 @@ public class TestRecoveryManager {
         recoveryManager.end(t1.getTransNum());
         finishRedoChecks();
 
-        // 3. Check state after ending
+        // 3. 检查结束后的状态
         Iterator<LogRecord> logs = logManager.scanFrom(60000L);
 
-        // The CLR for the alloc record and the CLR for the update record have
-        // been appended.
+        // alloc 记录的 CLR 和 update 记录的 CLR 已被追加。
         assertEquals(expectedAllocCLR, logs.next());
         LogRecord updateCLR = logs.next();
         assertEquals(expectedUpdateCLR, updateCLR);
 
-        // An end transaction log record should have been appended
+        // 应该追加一个结束事务日志记录
         LogRecord expectedEnd = new EndTransactionLogRecord(t1.getTransNum(), updateCLR.getLSN());
         expectedEnd.setLSN(expectedUpdateCLR.getLSN() + expectedUpdateCLR.toBytes().length);
         assertEquals(expectedEnd, logs.next());
-        assertFalse(logs.hasNext()); // no other records written
+        assertFalse(logs.hasNext()); // 没有其他记录被写入
 
-        // Transaction should have completed and removed from the transaction table.
-        // Redoing the updateCLR should have dirtied page 10000000001.
+        // 事务应该已完成并从事务表中移除。
+        // 重做 updateCLR 应该使页面 10000000001 变脏。
         assertEquals(Transaction.Status.COMPLETE, t1.getStatus());
         assertTrue(transactionTable.isEmpty());
         assertEquals(Collections.singletonMap(10000000001L, updateCLR.getLSN()), dirtyPageTable);
     }
 
     /**
-     * Basic test of a transaction updating and committing:
-     * 1. Transaction 1 logs a page update and commits
-     *    Checks:
-     *      - LastLSN in transaction table is equal to the LSN of the commit record
-     *      - Transaction 1 status is committing
-     * 2. Transaction 2 starts and logs a page update. Does not commit
-     *    Checks:
-     *      - LSN of T1 commit <= flushed LSN < LSN of T2 page write (log is flushed up to the commit record)
+     * 事务更新和提交的基本测试：
+     * 1. 事务1记录页面更新并提交
+     *    检查：
+     *      - 事务表中的LastLSN等于提交记录的LSN
+     *      - 事务1的状态为提交中
+     * 2. 事务2开始并记录页面更新。不提交
+     *    检查：
+     *      - T1 Commit LSN <= flushed LSN < T2 Page LSN（日志刷新到提交记录）
      */
     @Test
     @Category(PublicTests.class)
     public void testSimpleCommit() {
-        // Details for page update
+        // 页面更新的详细信息
         long pageNum = 10000000002L;
         short pageOffset = 20;
         byte[] before = new byte[] { (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00 };
         byte[] after = new byte[] { (byte) 0xBA, (byte) 0xAD, (byte) 0xF0, (byte) 0x0D };
 
-        // Create Transaction 1
+        // 创建事务1
         Transaction transaction1 = DummyTransaction.create(1L);
         recoveryManager.startTransaction(transaction1);
 
-        // Transaction 1 performs a write and then commits.
+        // 事务1执行写入然后提交
         recoveryManager.logPageWrite(1L, pageNum, pageOffset, before, after);
         long commitLSN = recoveryManager.commit(1L);
 
-        // lastLSN should be set to commit record LSN, status should be updated
+        // lastLSN应该设置为提交记录的LSN，状态应该更新
         assertEquals(commitLSN, transactionTable.get(1L).lastLSN);
         assertEquals(Transaction.Status.COMMITTING, transactionTable.get(1L).transaction.getStatus());
 
-        // Since Transaction1 committed, the log should be flushed up to the
-        // commit record's LSN
-        assertTrue(logManager.getFlushedLSN() + " is not greater than or equal to " + commitLSN,
+        // 由于事务1已提交，日志应该刷新到提交记录的LSN
+        assertTrue(logManager.getFlushedLSN() + " 不大于等于 " + commitLSN,
                 logManager.getFlushedLSN() >= commitLSN);
 
-        // Create Transaction 2
+        // 创建事务2
         Transaction transaction2 = DummyTransaction.create(2L);
         recoveryManager.startTransaction(transaction2);
 
-        // Transaction 2 performs a write
+        // 事务2执行写入
         long updateLSN = recoveryManager.logPageWrite(2L, pageNum + 1, pageOffset, before, after);
 
-        // You must implement logPageWrite to pass this check. Checks that log
-        // isn't automatically flushed for page updates.
-        assertTrue(logManager.getFlushedLSN() + " is not less than " + updateLSN,
+        // 你必须实现logPageWrite才能通过此检查。
+        // 检查日志页面更新不会自动刷新
+        assertTrue(logManager.getFlushedLSN() + " 应该小于 " + updateLSN,
                 logManager.getFlushedLSN() < updateLSN);
     }
 
@@ -1450,8 +1449,8 @@ public class TestRecoveryManager {
     }
 
     /**
-     * Tests that DPT is cleaned up correctly in restart as indicated in the spec.
-     * Should only contain pages that are actually dirty.
+     * 测试DPT在重启时是否按规范正确清理。
+     * 应该只包含实际脏页。
      */
     @Test
     @Category(PublicTests.class)
@@ -1468,13 +1467,13 @@ public class TestRecoveryManager {
         logManager.fetchLogRecord(LSN1).redo(recoveryManager, diskSpaceManager,
                 bufferManager);
 
-        // flush everything - recovery tests should always start
-        // with a clean load from disk, and here we want everything sent to disk first.
-        // Note: this does not call RecoveryManager#close - it only closes the
-        // buffer manager and disk space manager.
+        // 刷新所有内容 - 恢复测试应始终从磁盘干净加载，
+        // 这里我们希望先将所有内容发送到磁盘。
+        // 注意：这不会调用RecoveryManager#close - 它只关闭
+        // buffer manager和disk space manager。
         shutdownRecoveryManager(recoveryManager);
 
-        // load from disk again
+        // 再次从磁盘加载
         recoveryManager = loadRecoveryManager(testDir);
         recoveryManager.restartAnalysis();
         recoveryManager.restartRedo();
@@ -1485,10 +1484,9 @@ public class TestRecoveryManager {
     // Helpers /////////////////////////////////////////////////////////////////
 
     /**
-     * Helper to set up checks for redo. The first call to LogRecord.redo will call
-     * the first method in METHODS, the second call to the second method in METHODS,
-     * and so on. Call this method before the redo pass, and call finishRedoChecks
-     * after the redo pass.
+     * 用于设置重做检查的辅助方法。第一次调用LogRecord.redo将调用METHODS中的第一个方法，
+     * 第二次调用METHODS中的第二个方法，依此类推。在重做阶段之前调用此方法，
+     * 在重做阶段之后调用finishRedoChecks。
      */
     @SafeVarargs
     private final void setupRedoChecks(Consumer<LogRecord>... methods) {
@@ -1503,25 +1501,23 @@ public class TestRecoveryManager {
     }
 
     /**
-     * Helper to finish checks for redo. Call this after the redo pass (or undo
-     * pass)- if not enough redo calls were performed, an error is thrown.
+     * 用于完成重做检查的辅助方法。在重做阶段（或撤销阶段）之后调用此方法 -
+     * 如果执行的重做调用次数不够，将抛出错误。
      *
-     * If setupRedoChecks is used for the redo pass, and this method is not called
-     * before the undo pass, and the undo pass calls undo at least once, an error
-     * may be incorrectly thrown.
+     * 如果在重做阶段使用了setupRedoChecks，且在撤销阶段之前没有调用此方法，
+     * 并且撤销阶段至少调用了一次撤销，则可能会错误地抛出错误。
      */
     private void finishRedoChecks() {
-        assertTrue("LogRecord#redo() not called enough times", redoMethods.isEmpty());
+        assertTrue("LogRecord#redo() 调用次数不足", redoMethods.isEmpty());
         LogRecord.onRedoHandler(record -> {
         });
     }
 
     /**
-     * Flushes everything to disk, but does not call RecoveryManager#shutdown.
-     * Similar to pulling the plug on the database at a time when no changes are in
-     * memory. You can simulate a shutdown where certain changes _are_ in memory, by
-     * simply never applying them (i.e. write a log record, but do not make the
-     * changes on the buffer manager/disk space manager).
+     * 将所有内容刷新到磁盘，但不调用RecoveryManager#shutdown。
+     * 类似于在内存中没有更改时突然断电数据库。您可以通过简单地不应用某些更改
+     * 来模拟内存中存在某些更改的关闭（即，写入日志记录，但不在缓冲管理器/
+     * 磁盘空间管理器上进行更改）。
      */
     protected void shutdownRecoveryManager(ARIESRecoveryManager recoveryManager) {
         recoveryManager.logManager.close();

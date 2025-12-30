@@ -56,7 +56,7 @@ public class LockUtil {
                 lockContext.escalate(transaction);
             }
         } else {
-            // 2.4 到这里仅有可能是 S -> X 或者压根没有锁 NL -> S/X
+            // 2.4 到这里仅有可能是 S -> X / SIX 或者压根没有锁 NL -> S/X
             // 确保祖先节点有权限
             ensureParentSufficientLockHeld(parentContext, transaction, requestType);
             // 这里已经满足需求了，并且做好了升级
@@ -113,7 +113,14 @@ public class LockUtil {
         if (explicitLockType == LockType.NL) {
             parentContext.acquire(transaction, newLockType);
         } else {
-            parentContext.promote(transaction, newLockType);
+            // 这里有几种情况:
+            // IS   ->  IX
+            // S    ->  IX  ->  SIX
+            if (explicitLockType == LockType.S && newLockType == LockType.IX) {
+                parentContext.promote(transaction, LockType.SIX);
+            } else {
+                parentContext.promote(transaction, newLockType);
+            }
         }
     }
 }

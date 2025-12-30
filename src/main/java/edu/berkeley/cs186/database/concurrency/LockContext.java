@@ -150,7 +150,7 @@ public class LockContext {
         // 1.2 如果事务在该资源节点上没有获取显式锁，直接抛出异常
         if (getExplicitLockType(transaction) == LockType.NL) throw new NoLockHeldException("事务 " + transaction.getTransNum() + "在资源" + name + " 上没有获取锁");
         // 1.3 多粒度锁协议约束
-        // 1.3.1 向下，如果说子节点还有锁，则抛出异常
+        // 1.3.1 向上，如果说子节点还有锁，则抛出异常
         int numChildren = getNumChildren(transaction);
         if (numChildren != 0) throw new InvalidLockException("锁的释放必须从下到上， 这里子树上还有锁的数量为：" + numChildren);
 
@@ -202,8 +202,11 @@ public class LockContext {
             lockman.acquireAndRelease(transaction, name, newLockType, releaseList);
             // 更新所有被释放了锁的节点的numChildLocks
             for (ResourceName resourceName : releaseList) {
-                LockContext context = fromResourceName(lockman, resourceName);
-                context.updateParentNumChildLocks(transaction, -1);
+                // 只有是name的子节点才更新numChildLocks
+                if (resourceName.isDescendantOf(name)) {
+                    LockContext context = fromResourceName(lockman, resourceName);
+                    context.updateParentNumChildLocks(transaction, -1);
+                }
             }
         } else {
             // 直接升级
@@ -264,10 +267,12 @@ public class LockContext {
             lockedDescendants.add(name);
             lockman.acquireAndRelease(transaction, name, LockType.X, lockedDescendants);
         }
-        // 2.3 更新numChildLocks
-        for (ResourceName lockedDescendant : lockedDescendants) {
-            LockContext context = fromResourceName(lockman, lockedDescendant);
-            context.updateParentNumChildLocks(transaction,-1);
+        // 更新所有被释放了锁的节点的numChildLocks
+        for (ResourceName resourceName : lockedDescendants) {
+            if (resourceName.isDescendantOf(name)) {
+                LockContext context = fromResourceName(lockman, resourceName);
+                context.updateParentNumChildLocks(transaction, -1);
+            }
         }
     }
 
@@ -320,20 +325,25 @@ public class LockContext {
         if (transaction == null) return LockType.NL;
         // TODO(proj4_part2): 实现
         // 1. 先获取该节点的显式锁
-        LockType lockType = getExplicitLockType(transaction);
-        // 2. base case: 如果有显式锁(非NL)，或者没有父节点了直接返回
-        if (lockType != LockType.NL || parent == null) {
-            return lockType;
+        LockType explicitLockType = getExplicitLockType(transaction);
+
+        // 2. 获取从父节点继承的隐式锁
+        LockType implicitLockType = LockType.NL;
+        if (parent != null) {
+            LockType parentLockType = parent.getEffectiveLockType(transaction);
+            // 从父节点的有效锁推导子节点的隐式锁
+            if (parentLockType == LockType.X || parentLockType == LockType.S) {
+                implicitLockType = parentLockType;
+            } else if (parentLockType == LockType.SIX) {
+                implicitLockType = LockType.S;
+            }
         }
-        // 3. recurse case: 如果有父节点 且 没有显式锁就递归获取父节点的隐式锁
-        lockType = parent.getEffectiveLockType(transaction);
-        // 这里的lockType有几种可能：是从父节点直接继承下来的，从父节点的父节点
-        if (lockType == LockType.X || lockType == LockType.S) {
-            return lockType;
-        } else if (lockType == LockType.SIX) {
-            return LockType.S;
+
+        // 3. 返回显式锁和隐式锁中权限更高的那个
+        if (LockType.substitutable(explicitLockType, implicitLockType)) {
+            return explicitLockType;
         } else {
-            return LockType.NL;
+            return implicitLockType;
         }
     }
 

@@ -1,38 +1,38 @@
 package edu.berkeley.cs186.database.recovery;
 
 public enum LogType {
-    // master log record (stores current checkpoint)
+    // 主日志记录（存储当前检查点）
     MASTER,
-    // log record for allocating a new page (via the disk space manager)
+    // 分配新页面的日志记录（通过磁盘空间管理器）
     ALLOC_PAGE,
-    // log record for updating part of a page
+    // 更新页面部分内容的日志记录
     UPDATE_PAGE,
-    // log record for freeing a page (via the disk space manager)
+    // 释放页面的日志记录（通过磁盘空间管理器）
     FREE_PAGE,
-    // log record for allocating a new partition (via the disk space manager)
+    // 分配新分区的日志记录（通过磁盘空间管理器）
     ALLOC_PART,
-    // log record for freeing a partition (via the disk space manager)
+    // 释放分区的日志记录（通过磁盘空间管理器）
     FREE_PART,
-    // log record for starting a transaction commit
+    // 开始事务提交的日志记录
     COMMIT_TRANSACTION,
-    // log record for starting a transaction abort
+    // 开始事务回滚的日志记录
     ABORT_TRANSACTION,
-    // log record for after a transaction has completely finished
+    // 事务完全完成后的日志记录
     END_TRANSACTION,
-    // log record for start of a checkpoint
+    // 检查点开始的日志记录
     BEGIN_CHECKPOINT,
-    // log record for finishing a checkpoint; there may be multiple of these
-    // for a checkpoint
+    // 完成检查点的日志记录；一个检查点可能有多个这样的记录
+    // 一个检查点
     END_CHECKPOINT,
-    // compensation log record for undoing a page alloc
+    // 用于撤销页面分配的补偿日志记录
     UNDO_ALLOC_PAGE,
-    // compensation log record for undoing a page update
+    // 用于撤销页面更新的补偿日志记录
     UNDO_UPDATE_PAGE,
-    // compensation log record for undoing a page free
+    // 用于撤销页面释放的补偿日志记录
     UNDO_FREE_PAGE,
-    // compensation log record for undoing a partition alloc
+    // 用于撤销分区分配的补偿日志记录
     UNDO_ALLOC_PART,
-    // compensation log record for undoing a partition free
+    // 用于撤销分区释放的补偿日志记录
     UNDO_FREE_PART;
 
     private static LogType[] values = LogType.values();

@@ -15,32 +15,29 @@ import edu.berkeley.cs186.database.recovery.records.MasterLogRecord;
 import java.util.*;
 
 /**
- * The LogManager is responsible for interfacing with the log itself. The log is stored
- * on its own partition (partition 0). Since log pages are never deleted, the page number
- * is always increasing, so we assign LSNs as follow:
- * - page 1: [ LSN 10000, LSN 10040, LSN 10080, ...]
- * - page 2: [ LSN 20000, LSN 20030, LSN 20055, ...]
- * - page 3: [ LSN 30000, LSN 30047, LSN 30090, ...]
- * allowing for up to 10,000 log entries per page. The index (last 4 digits) is the offset
- * within the page where the log record starts. Log entries are not fixed width,
- * so backwards iteration is not as easy as forward iteration. Page 0 is reserved for the
- * master record, which only contains a few log entries: the master record, with LSN 0, followed
- * by an empty begin and end checkpoint record. The master record is the only record in the
- * entire log that may be rewritten.
+ * LogManager 负责与日志本身进行交互。日志存储在自己的分区（分区 0）中。
+ * 由于日志页面从不被删除，页号总是递增的，因此我们按以下方式分配 LSN：
+ * - 页 1: [ LSN 10000, LSN 10040, LSN 10080, ...]
+ * - 页 2: [ LSN 20000, LSN 20030, LSN 20055, ...]
+ * - 页 3: [ LSN 30000, LSN 30047, LSN 30090, ...]
+ * 每页最多允许 10,000 条日志记录。索引（后 4 位数字）是日志记录开始的页面内偏移量。
+ * 日志记录不是固定宽度的，因此反向迭代不像正向迭代那样简单。
+ * 第 0 页保留用于主记录，其中只包含几个日志条目：LSN 为 0 的主记录，
+ * 后跟一个空的开始检查点记录和结束检查点记录。主记录是整个日志中唯一可以重写的记录。
  *
- * The LogManager is also responsible for writing pageLSNs onto pages and flushing the log
- * when pages are flushed, and therefore has a few methods that must be called by the buffer
- * manager when pages are fetched and evicted (fetchPageHook, fetchNewPageHook, and pageEvictHook).
- * These must be called from the buffer manager to ensure that pageLSN is up to date, and
- * that flushedLSN >= any pageLSN on disk.
+ * LogManager 还负责将 pageLSN 写入页面，并在页面被刷新时刷新日志，
+ * 因此有几个方法必须在页面被获取和驱逐时由缓冲管理器调用
+ * （fetchPageHook、fetchNewPageHook 和 pageEvictHook）。
+ * 这些方法必须从缓冲管理器调用，以确保 pageLSN 是最新的，并且
+ * flushedLSN >= 磁盘上的任何 pageLSN。
  */
 public class LogManager implements Iterable<LogRecord>, AutoCloseable {
-    private BufferManager bufferManager;
-    private Deque<Page> unflushedLogTail;
-    private Page logTail;
-    private Buffer logTailBuffer;
-    private boolean logTailPinned = false;
-    private long flushedLSN;
+    private BufferManager bufferManager;    // 缓冲管理器
+    private Deque<Page> unflushedLogTail;   // 未刷新的日志页
+    private Page logTail;                   // 内存中的日志尾
+    private Buffer logTailBuffer;           // 日志尾缓冲
+    private boolean logTailPinned = false;  // 日志尾页是否被固定
+    private long flushedLSN;                // 已刷新的LSN
 
     public static final int LOG_PARTITION = 0;
 
@@ -48,6 +45,8 @@ public class LogManager implements Iterable<LogRecord>, AutoCloseable {
         this.bufferManager = bufferManager;
         this.unflushedLogTail = new ArrayDeque<>();
 
+        // 创建日志尾
+        // 注意这里调用的是NewPage,
         this.logTail = bufferManager.fetchNewPage(new DummyLockContext("_dummyLogPageRecord"), LOG_PARTITION);
         this.unflushedLogTail.add(this.logTail);
         this.logTailBuffer = this.logTail.getBuffer();
@@ -57,8 +56,8 @@ public class LogManager implements Iterable<LogRecord>, AutoCloseable {
     }
 
     /**
-     * Writes to the first record in the log.
-     * @param record log record to replace first record with
+     * 将日志的第一条记录重写。
+     * @param record 用于替换第一条记录的日志记录
      */
     public synchronized void rewriteMasterRecord(MasterLogRecord record) {
         Page firstPage = bufferManager.fetchPage(new DummyLockContext("_dummyLogPageRecord"), LOG_PARTITION);
@@ -71,14 +70,15 @@ public class LogManager implements Iterable<LogRecord>, AutoCloseable {
     }
 
     /**
-     * Appends a log record to the log.
-     * @param record log record to append to the log
-     * @return LSN of new log record
+     * 将一条日志记录追加到日志中。
+     * @param record 要追加到日志中的日志记录
+     * @return 新日志记录的LSN
      */
     public synchronized long appendToLog(LogRecord record) {
         byte[] bytes = record.toBytes();
-        // loop in case accessing log tail requires flushing the log in order to evict dirty page to load log tail
+        // 循环，以防访问日志尾部需要刷新日志以驱逐脏页来加载日志尾部
         do {
+            // 如果日志尾部已满或者不够，则创建新的日志尾
             if (logTailBuffer == null || bytes.length > DiskSpaceManager.PAGE_SIZE - logTailBuffer.position()) {
                 logTailPinned = true;
                 logTail = bufferManager.fetchNewPage(new DummyLockContext("_dummyLogPageRecord"), LOG_PARTITION);
@@ -92,6 +92,8 @@ public class LogManager implements Iterable<LogRecord>, AutoCloseable {
                 }
             }
         } while (logTailBuffer == null);
+
+
         try {
             int pos = logTailBuffer.position();
             logTailBuffer.put(bytes);
@@ -105,9 +107,9 @@ public class LogManager implements Iterable<LogRecord>, AutoCloseable {
     }
 
     /**
-     * Fetches a specific log record.
-     * @param LSN LSN of record to fetch
-     * @return log record with the specified LSN
+     * 获取特定的日志记录。
+     * @param LSN 要获取的记录的LSN
+     * @return 具有指定LSN的日志记录
      */
     public LogRecord fetchLogRecord(long LSN) {
         try {
@@ -127,10 +129,9 @@ public class LogManager implements Iterable<LogRecord>, AutoCloseable {
     }
 
     /**
-     * Flushes the log to at least the specified record,
-     * essentially flushing up to and including the page
-     * that contains the record specified by the LSN.
-     * @param LSN LSN up to which the log should be flushed
+     * 将日志刷新到至少指定的记录，
+     * 实际上是刷新到包含由LSN指定的记录的页面。
+     * @param LSN 日志应该刷新到的LSN
      */
     public synchronized void flushToLSN(long LSN) {
         Iterator<Page> iter = unflushedLogTail.iterator();
@@ -160,9 +161,9 @@ public class LogManager implements Iterable<LogRecord>, AutoCloseable {
     }
 
     /**
-     * Generates LSN from log page number and index
-     * @param pageNum page number of log page
-     * @param index index of the log record within the log page
+     * 根据日志页号和索引生成LSN
+     * @param pageNum 日志页的页号
+     * @param index 日志页内日志记录的索引
      * @return LSN
      */
     static long makeLSN(long pageNum, int index) {
@@ -170,44 +171,44 @@ public class LogManager implements Iterable<LogRecord>, AutoCloseable {
     }
 
     /**
-     * Generates the max possible LSN on the given page
-     * @param pageNum page number of log page
-     * @return max possible LSN on the log page
+     * 生成给定页上的最大可能LSN
+     * @param pageNum 日志页的页号
+     * @return 日志页上的最大可能LSN
      */
     static long maxLSN(long pageNum) {
         return makeLSN(pageNum, 9999);
     }
 
     /**
-     * Get the page number of the page with the record corresponding to LSN
-     * @param LSN LSN to get page of
-     * @return page that LSN resides on
+     * 获取对应LSN的记录所在的页号
+     * @param LSN 要获取页号的LSN
+     * @return LSN所在的页
      */
     static long getLSNPage(long LSN) {
         return LSN / 10000L;
     }
 
     /**
-     * Get the index within the page of the record corresponding to LSN
-     * @param LSN LSN to get index of
-     * @return index in page that LSN resides on
+     * 获取对应LSN的记录在页内的索引
+     * @param LSN 要获取索引的LSN
+     * @return LSN所在的页内的索引
      */
     static int getLSNIndex(long LSN) {
         return (int) (LSN % 10000L);
     }
 
     /**
-     * Scan forward in the log from LSN.
-     * @param LSN LSN to start scanning from
-     * @return iterator over log entries from LSN
+     * 从LSN开始向前扫描日志。
+     * @param LSN 开始扫描的LSN
+     * @return 从LSN开始的日志条目迭代器
      */
     public Iterator<LogRecord> scanFrom(long LSN) {
         return new ConcatBacktrackingIterator<>(new LogPagesIterator(LSN));
     }
 
     /**
-     * Scan forward in the log from the first record.
-     * @return iterator over all log entries
+     * 从第一条记录开始向前扫描日志。
+     * @return 所有日志条目的迭代器
      */
     @Override
     public Iterator<LogRecord> iterator() {

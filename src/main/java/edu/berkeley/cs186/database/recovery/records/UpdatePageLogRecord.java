@@ -15,20 +15,20 @@ import java.util.Objects;
 import java.util.Optional;
 
 public class UpdatePageLogRecord extends LogRecord {
-    private long transNum; // transaction that updated the page
-    private long pageNum; // page that was updated
-    private long prevLSN; // previous log's LSN
-    public short offset; // position of first changed byte
-    public byte[] before; // old bytes (before update)
-    public byte[] after; // new bytes (after update)
+    private long transNum; // 更新页面的事务
+    private long pageNum; // 被更新的页面
+    private long prevLSN; // 前一条日志的LSN
+    public short offset; // 第一个被修改字节的位置
+    public byte[] before; // 旧字节（更新前）
+    public byte[] after; // 新字节（更新后）
 
     /**
-     * @param transNum transaction number of transaction that updated the page
-     * @param pageNum the page that was updated
-     * @param prevLSN previous log's LSNS
-     * @param offset position of first changed byte
-     * @param before old bytes (before update)
-     * @param after new bytes (after update)
+     * @param transNum 更新页面的事务编号
+     * @param pageNum 被更新的页面编号
+     * @param prevLSN 前一条日志的LSN
+     * @param offset 第一个被修改字节的位置
+     * @param before 旧字节（更新前）
+     * @param after 新字节（更新后）
      */
     public UpdatePageLogRecord(long transNum, long pageNum, long prevLSN, short offset, byte[] before,
                         byte[] after) {

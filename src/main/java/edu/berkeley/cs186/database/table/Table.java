@@ -19,18 +19,16 @@ import java.util.Iterator;
 import java.util.Map;
 
 /**
- * # Overview
- * A Table represents a database table with which users can insert, get,
- * update, and delete records:
+ * # 概述
+ * Table 表示一个数据库表，用户可以对表进行插入、获取、更新和删除记录操作：
  *
- *   // Create a brand new table t(x: int, y: int) which is persisted in the
- *   // the heap file associated with `pageDirectory`.
+ *   // 创建一个全新的表 t(x: int, y: int)，该表持久化在与 `pageDirectory` 关联的堆文件中。
  *   List<String> fieldNames = Arrays.asList("x", "y");
  *   List<String> fieldTypes = Arrays.asList(Type.intType(), Type.intType());
  *   Schema schema = new Schema(fieldNames, fieldTypes);
  *   Table t = new Table("t", schema, pageDirectory, new DummyLockContext());
  *
- *   // Insert, get, update, and delete records.
+ *   // 插入、获取、更新和删除记录。
  *   List<DataBox> a = Arrays.asList(new IntDataBox(1), new IntDataBox(2));
  *   List<DataBox> b = Arrays.asList(new IntDataBox(3), new IntDataBox(4));
  *   RecordId rid = t.addRecord(a);
@@ -39,56 +37,49 @@ import java.util.Map;
  *   Record rb = t.getRecord(rid);
  *   t.deleteRecord(rid);
  *
- * # Persistence
- * Every table is persisted in its own PageDirectory object (passed into the constructor),
- * which interfaces with the BufferManager and DiskSpaceManager to save it to disk.
+ * # 持久化
+ * 每个表都持久化在它自己的 PageDirectory 对象中（在构造函数中传入），
+ * 该对象与 BufferManager 和 DiskSpaceManager 交互以将表保存到磁盘。
  *
- * A table can be loaded again by simply constructing it with the same parameters.
+ * 可以通过使用相同的参数构造表来重新加载该表。
  *
- * # Storage Format
- * Now, we discuss how tables serialize their data.
+ * # 存储格式
+ * 现在，我们讨论表如何序列化它们的数据。
  *
- * All pages are data pages - there are no header pages, because all metadata is
- * stored elsewhere (as rows in the _metadata.tables table). Every data
- * page begins with a n-byte bitmap followed by m records. The bitmap indicates
- * which records in the page are valid. The values of n and m are set to maximize the
- * number of records per page (see computeDataPageNumbers for details).
+ * 所有页面都是数据页——没有头页面，因为所有元数据都存储在其他地方
+ * （作为 _metadata.tables 表中的行）。每个数据页以 n 字节的位图开始，
+ * 后面跟着 m 条记录。位图指示哪些记录在页面中是有效的。
+ * n 和 m 的值被设置为最大化每页的记录数（详情请参见 computeDataPageNumbers）。
  *
- * For example, here is a cartoon of what a table's file would look like if we
- * had 5-byte pages and 1-byte records:
+ * 例如，如果我们有 5 字节的页面和 1 字节的记录，那么表的文件看起来就像这样：
  *
  *          +----------+----------+----------+----------+----------+ \
  *   Page 0 | 1001xxxx | 01111010 | xxxxxxxx | xxxxxxxx | 01100001 |  |
  *          +----------+----------+----------+----------+----------+  |
- *   Page 1 | 1101xxxx | 01110010 | 01100100 | xxxxxxxx | 01101111 |  |- data
+ *   Page 1 | 1101xxxx | 01110010 | 01100100 | xxxxxxxx | 01101111 |  |- 数据
  *          +----------+----------+----------+----------+----------+  |
  *   Page 2 | 0011xxxx | xxxxxxxx | xxxxxxxx | 01111010 | 00100001 |  |
  *          +----------+----------+----------+----------+----------+ /
  *           \________/ \________/ \________/ \________/ \________/
- *            bitmap     record 0   record 1   record 2   record 3
+ *            位图       记录 0     记录 1     记录 2     记录 3
  *
- *  - The first page (Page 0) is a data page. The first byte of this data page
- *    is a bitmap, and the next four bytes are each records. The first and
- *    fourth bit are set indicating that record 0 and record 3 are valid.
- *    Record 1 and record 2 are invalid, so we ignore their contents.
- *    Similarly, the last four bits of the bitmap are unused, so we ignore
- *    their contents.
- *  - The second and third page (Page 1 and 2) are also data pages and are
- *    formatted similar to Page 0.
+ *  - 第一页（Page 0）是一个数据页。这个数据页的第一个字节是位图，
+ *    接下来的四个字节分别是记录。第一位和第四位被设置，表示记录 0 和记录 3 是有效的。
+ *    记录 1 和记录 2 是无效的，所以我们忽略它们的内容。
+ *    同样，位图的最后四位未使用，所以我们忽略它们的内容。
+ *  - 第二页和第三页（Page 1 和 2）也是数据页，格式与第 0 页类似。
  *
- *  When we add a record to a table, we add it to the very first free slot in
- *  the table. See addRecord for more information.
+ *  当我们向表中添加记录时，我们会将其添加到表中的第一个空闲槽中。
+ *  有关更多信息，请参见 addRecord。
  *
- * Some tables have large records. In order to efficiently handle tables with
- * large records (that still fit on a page), we format these tables a bit differently,
- * by giving each record a full page. Tables with full page records do not have a bitmap.
- * Instead, each allocated page is a single record, and we indicate that a page does
- * not contain a record by simply freeing the page.
+ * 有些表有大记录。为了有效地处理有大记录的表（仍然可以适合一个页面），
+ * 我们以稍微不同的方式格式化这些表，给每个记录一个完整的页面。
+ * 全页记录的表没有位图。相反，每个分配的页面是一个单独的记录，
+ * 我们通过简单地释放页面来表示页面不包含记录。
  *
- * In some cases, this behavior may be desirable even for small records (our database
- * only supports locking at the page level, so in cases where tuple-level locks are
- * necessary even at the cost of an I/O per tuple, a full page record may be desirable),
- * and may be explicitly toggled on with the setFullPageRecords method.
+ * 在某些情况下，即使对于小记录，这种行为也可能是可取的
+ * （我们的数据库只支持页面级锁定，所以在每个元组的 I/O 成本下需要元组级锁的情况下，全页记录可能是可取的）,
+ * 并且可以通过 setFullPageRecords 方法显式切换。
  */
 public class Table implements BacktrackingIterable<Record> {
     // The name of the table.

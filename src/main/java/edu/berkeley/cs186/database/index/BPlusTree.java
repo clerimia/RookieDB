@@ -88,7 +88,7 @@ public class BPlusTree {
         // 默认情况下我们要读取整棵树
         LockUtil.ensureSufficientLockHeld(lockContext, LockType.S);
 
-        // Sanity checks.
+        // 合理性检查.
         if (metadata.getOrder() < 0) {
             String msg = String.format(
                     "You cannot construct a B+ tree with negative order %d.",
@@ -139,7 +139,7 @@ public class BPlusTree {
     public Optional<RecordId> get(DataBox key) {
         typecheck(key);
         // TODO(proj4_integration): Update the following line
-        LockUtil.ensureSufficientLockHeld(lockContext, LockType.NL);
+        LockUtil.ensureSufficientLockHeld(lockContext, LockType.S);
 
         // 1.获取对应的叶子节点
         LeafNode leafNode = root.get(key);
@@ -162,7 +162,7 @@ public class BPlusTree {
     public Iterator<RecordId> scanEqual(DataBox key) {
         typecheck(key);
         // TODO(proj4_integration): Update the following line
-        LockUtil.ensureSufficientLockHeld(lockContext, LockType.NL);
+        LockUtil.ensureSufficientLockHeld(lockContext, LockType.S);
 
         Optional<RecordId> rid = get(key);
         if (rid.isPresent()) {
@@ -199,7 +199,7 @@ public class BPlusTree {
      */
     public Iterator<RecordId> scanAll() {
         // TODO(proj4_integration): Update the following line
-        LockUtil.ensureSufficientLockHeld(lockContext, LockType.NL);
+        LockUtil.ensureSufficientLockHeld(lockContext, LockType.S);
 
         // TODO(proj2): Return a BPlusTreeIterator.
         return new BPlusTreeIterator();
@@ -229,7 +229,7 @@ public class BPlusTree {
     public Iterator<RecordId> scanGreaterEqual(DataBox key) {
         typecheck(key);
         // TODO(proj4_integration): Update the following line
-        LockUtil.ensureSufficientLockHeld(lockContext, LockType.NL);
+        LockUtil.ensureSufficientLockHeld(lockContext, LockType.S);
 
         // TODO(proj2): Return a BPlusTreeIterator.
         return new BPlusTreeIterator(key);
@@ -246,7 +246,7 @@ public class BPlusTree {
     public void put(DataBox key, RecordId rid) {
         typecheck(key);
         // TODO(proj4_integration): Update the following line
-        LockUtil.ensureSufficientLockHeld(lockContext, LockType.NL);
+        LockUtil.ensureSufficientLockHeld(lockContext, LockType.X);
 
         // TODO(proj2): implement
         // 注意：您不应直接更新根变量。
@@ -289,7 +289,7 @@ public class BPlusTree {
      */
     public void bulkLoad(Iterator<Pair<DataBox, RecordId>> data, float fillFactor) {
         // TODO(proj4_integration): Update the following line
-        LockUtil.ensureSufficientLockHeld(lockContext, LockType.NL);
+        LockUtil.ensureSufficientLockHeld(lockContext, LockType.X);
 
         // TODO(proj2): implement
         // 注意：您不应直接更新根变量。
@@ -331,7 +331,7 @@ public class BPlusTree {
     public void remove(DataBox key) {
         typecheck(key);
         // TODO(proj4_integration): Update the following line
-        LockUtil.ensureSufficientLockHeld(lockContext, LockType.NL);
+        LockUtil.ensureSufficientLockHeld(lockContext, LockType.X);
 
         // TODO(proj2): implement
         // 调用root的remove即可
@@ -344,7 +344,7 @@ public class BPlusTree {
      */
     public String toSexp() {
         // TODO(proj4_integration): Update the following line
-        LockUtil.ensureSufficientLockHeld(lockContext, LockType.NL);
+        LockUtil.ensureSufficientLockHeld(lockContext, LockType.S);
         return root.toSexp();
     }
 
@@ -360,7 +360,7 @@ public class BPlusTree {
      */
     public String toDot() {
         // TODO(proj4_integration): Update the following line
-        LockUtil.ensureSufficientLockHeld(lockContext, LockType.NL);
+        LockUtil.ensureSufficientLockHeld(lockContext, LockType.S);
 
         List<String> strings = new ArrayList<>();
         strings.add("digraph g {" );

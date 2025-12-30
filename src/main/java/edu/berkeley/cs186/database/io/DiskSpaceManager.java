@@ -92,10 +92,10 @@ public interface DiskSpaceManager extends AutoCloseable {
     }
 
     /**
-     * Gets the virtual page number given partition/data page number
-     * @param partNum partition number
-     * @param pageNum data page number
-     * @return virtual page number
+     * 根据分区号和数据页号获取虚拟页号
+     * @param partNum 分区号
+     * @param pageNum 数据页号
+     * @return 虚拟页号
      */
     static long getVirtualPageNum(int partNum, int pageNum) {
         return partNum * 10000000000L + pageNum;

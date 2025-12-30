@@ -35,13 +35,13 @@ public class CommandLineInterface {
 
     public static void main(String args[]) throws IOException {
         // 项目0到3的基础数据库
-        Database db = new Database("demo", 25);
+        // Database db = new Database("demo", 25);
         
         // 完成项目4（锁定）后使用以下代码
         // Database db = new Database("demo", 25, new LockManager());
         
         // 完成项目5（恢复）后使用以下代码
-        // Database db = new Database("demo", 25, new LockManager(), new ClockEvictionPolicy(), true);
+        Database db = new Database("demo", 25, new LockManager(), new ClockEvictionPolicy(), true);
 
         db.loadDemo();
 

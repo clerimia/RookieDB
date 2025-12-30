@@ -1,5 +1,4 @@
 package edu.berkeley.cs186.database;
-
 import edu.berkeley.cs186.database.categories.HiddenTests;
 import edu.berkeley.cs186.database.categories.Proj4IntegrationTests;
 import edu.berkeley.cs186.database.categories.PublicTests;
@@ -26,11 +25,10 @@ import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
 
+
 /**
- * These tests are sanity checks to make sure that code you bring in from
- * previous projects integrates correctly with the locking implementation, if
- * you choose to do so. These tests are NOT GRADED and are NOT a part of your
- * project 4 submission.
+ * 这些测试是用来确保你从以前项目中带来的代码能与锁实现正确集成的基本检查，
+ * 如果你选择这样做的话。这些测试不计入成绩，也不是你项目4提交的一部分。
  */
 @Category({Proj4IntegrationTests.class})
 public class TestDatabaseLockingIntegration {

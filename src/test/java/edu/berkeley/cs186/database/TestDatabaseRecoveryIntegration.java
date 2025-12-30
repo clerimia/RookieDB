@@ -26,8 +26,7 @@ import java.util.List;
 import static org.junit.Assert.*;
 
 /**
- * These tests are *not* graded and not part of your project 5 submission, but
- * they should work if you finish project 5.
+ * 这些测试*不*进行评分，也不属于你的项目5提交内容，但如果你完成了项目5，这些测试应该都能通过。
  */
 public class TestDatabaseRecoveryIntegration {
     private static final String TestDir = "testDatabaseRecovery";
@@ -38,7 +37,7 @@ public class TestDatabaseRecoveryIntegration {
     @Rule
     public TemporaryFolder tempFolder = new TemporaryFolder();
 
-    // 10 second max per method tested.
+    // 10秒每个方法测试的最大时间。
     public static long timeout = (long) (10000 * TimeoutScaling.factor);
 
     @Rule
@@ -62,7 +61,7 @@ public class TestDatabaseRecoveryIntegration {
                 throw new DatabaseException("Failed to load demo tables.\n" + e.getMessage());
             }
         }
-        // force initialization to finish before continuing
+        // 强制初始化完成后再继续
         this.db.waitAllTransactions();
     }
 
@@ -84,18 +83,16 @@ public class TestDatabaseRecoveryIntegration {
     @Test
     public void testRollbackDropTable() {
         /**
-         * Tests that rollbacks work properly when a table is dropped. Does a
-         * full scan of `Students` table and stores records. Then, drops the
-         * `Students` table. After dropping, queries to the `Students` table
-         * should fail. Afterwards, the transaction is rolled back.
+         * 测试在删除表时回滚是否正常工作。对`Students`表进行全表扫描并存储记录。
+         * 然后，删除`Students`表。删除后，对`Students`表的查询应该失败。
+         * 之后，回滚事务。
          *
-         * In a new transaction, a new full scan of `Students` is done to
-         * verify that all the records were restored.
+         * 在新事务中，对`Students`进行新的全表扫描以验证所有记录是否已恢复。
          */
         List<Record> oldRecords = new ArrayList<>();
         List<Record> newRecords = new ArrayList<>();
 
-        // Do a full scan of `Students`
+        // 对`Students`进行全表扫描
         try (Transaction t= db.beginTransaction()) {
             Iterator<Record> records = t.query("Students").execute();
             while (records.hasNext()) oldRecords.add(records.next());
@@ -105,7 +102,7 @@ public class TestDatabaseRecoveryIntegration {
                 t.query("Students").execute();
                 fail("Query should have failed, Students was dropped!");
             } catch (DatabaseException e) {
-                // Make sure fails for correct reason
+                // 确保失败原因正确
                 assertTrue(e.getMessage().contains("does not exist!"));
             }
             t.rollback();
@@ -122,27 +119,26 @@ public class TestDatabaseRecoveryIntegration {
     @Test
     public void testRollbackDropAllTables() {
         /**
-         * Identical to the above test, but instead checks the behavior
-         * of dropping all tables.
+         * 与上面的测试相同，但检查删除所有表的行为。
          */
         String[] tableNames = {"Students", "Enrollments", "Courses"};
         List<Record> oldRecords = new ArrayList<>();
         List<Record> newRecords = new ArrayList<>();
 
-        // Do a full scan of each table
+        // 对每个表进行全表扫描
         try (Transaction t= db.beginTransaction()) {
             for (int i = 0; i < tableNames.length; ++i) {
                 Iterator<Record> records = t.query(tableNames[i]).execute();
                 while (records.hasNext()) oldRecords.add(records.next());
             }
-            // Drop all the tables
+            // 删除所有表
             t.dropAllTables();
             for (int i = 0; i < tableNames.length; ++i) {
                 try {
                     t.query(tableNames[i]).execute();
                     fail("Query should have failed, all tables were dropped!");
                 } catch (DatabaseException e) {
-                    // Make sure fails for correct reason
+                    // 确保失败原因正确
                     assertTrue(e.getMessage().contains("does not exist!"));
                 }
             }
@@ -162,12 +158,10 @@ public class TestDatabaseRecoveryIntegration {
     @Test
     public void testRollbackDropIndex() {
         /**
-         * Creates an index on `Students.sid`. Since an index is available,
-         * querying for equality on `sid` should use an index scan to access
-         * the table in the query plan. The index is then dropped, and the query
-         * plan should no longer have access to index scans. Afterwards, the
-         * DROP INDEX is rolled back, querying should once again rely on an
-         * index scan.
+         * 在`Students.sid`上创建索引。由于索引可用，
+         * 对`sid`的等值查询应在查询计划中使用索引扫描来访问表。
+         * 然后删除索引，查询计划不应再有索引扫描的访问方式。
+         * 之后，回滚DROP INDEX操作，查询应再次依赖索引扫描。
          */
         try (Transaction t = db.beginTransaction()) {
             t.createIndex("Students", "sid", false);
@@ -198,11 +192,9 @@ public class TestDatabaseRecoveryIntegration {
     @Test
     public void testRollbackUpdate() {
         /**
-         * Does a full scan on the `Students` table and saves results for later
-         * comparison. The `gpa` field for every student is then set to 0.0,
-         * and another full scan is done to verify that the changes were made.
-         * Finally, the changes are rolled back and the state of `Students`
-         * before and after the transaction that was rolled back is compared.
+         * 对`Students`表进行全表扫描并将结果保存以供后续比较。
+         * 然后将每个学生的`gpa`字段设置为0.0，并再次进行全表扫描以验证更改是否已生效。
+         * 最后，回滚更改并比较回滚事务之前和之后`Students`的状态。
          */
         List<Record> oldRecords = new ArrayList<>();
         List<Record> newRecords = new ArrayList<>();
@@ -211,7 +203,7 @@ public class TestDatabaseRecoveryIntegration {
             Iterator<Record> records = t.query("Students").execute();
             while (records.hasNext()) oldRecords.add(records.next());
 
-            // Flatten the curve
+            // 拉平曲线
             t.update("Students", "gpa", (DataBox d) -> DataBox.fromObject(0.0));
             Schema s = t.getSchema("Students");
             records = t.query("Students").execute();
@@ -231,7 +223,7 @@ public class TestDatabaseRecoveryIntegration {
     @Test
     public void testRollbackDeleteAll() {
         /**
-         * Same as above, but instead of updating records deletes them.
+         * 与上面相同，但不是更新记录而是删除它们。
          */
         List<Record> oldRecords = new ArrayList<>();
         List<Record> newRecords = new ArrayList<>();
@@ -256,7 +248,7 @@ public class TestDatabaseRecoveryIntegration {
     @Test
     public void testRollbackDeletePartial() {
         /**
-         * Same as above, but only deletes specific records.
+         * 与上面相同，但只删除特定记录。
          */
         List<Record> oldRecords = new ArrayList<>();
         List<Record> newRecords = new ArrayList<>();
@@ -284,25 +276,22 @@ public class TestDatabaseRecoveryIntegration {
     @Test
     public void testSavepointDropTable() {
         /**
-         * Tests the functionality of save points when a table is dropped.
-         * First, a full scan of `Enrollments` is done and the records are
-         * stored for later comparison.
+         * 测试删除表时保存点的功能。
+         * 首先，对`Enrollments`进行全表扫描并将记录存储以供后续比较。
          *
-         * Next, the Students table is dropped, and a savepoint is created.
-         * The `Enrollments` table is dropped, then we immediately rollback
-         * to the savepoint. Since we've rolled back to before `Enrollments`
-         * was dropped, the table should be restored and all the original
-         * records should be present when we perform another full scan.
+         * 接下来，删除Students表，并创建保存点。
+         * 删除`Enrollments`表，然后立即回滚到保存点。
+         * 由于我们已回滚到`Enrollments`被删除之前，表应该被恢复，
+         * 当我们再次进行全表扫描时，所有原始记录应该都存在。
          *
-         * Finally, in a new transaction, we check that the `Students` table no
-         * longer exists since we didn't rollback dropping `Students`, and we
-         * check again that all the original records in `Enrollments` are
-         * present.
+         * 最后，在新事务中，我们检查`Students`表是否不再存在，
+         * 因为我们没有回滚删除`Students`的操作，
+         * 并再次检查`Enrollments`中的所有原始记录是否存在。
          */
         List<Record> oldRecords = new ArrayList<>();
         List<Record> newRecords = new ArrayList<>();
 
-        // Do a full scan of `Enrollments`
+        // 对`Enrollments`进行全表扫描
         try (Transaction t= db.beginTransaction()) {
             Iterator<Record> records = t.query("Enrollments").execute();
             while (records.hasNext()) oldRecords.add(records.next());
@@ -314,7 +303,7 @@ public class TestDatabaseRecoveryIntegration {
                 t.query("Enrollments").execute();
                 fail("Query should have failed, Enrollments was dropped!");
             } catch (DatabaseException e) {
-                // Make sure fails for correct reason
+                // 确保失败原因正确
                 assertTrue(e.getMessage().contains("does not exist!"));
             }
             t.rollbackToSavepoint("beforeDroppingEnrollments");
@@ -325,13 +314,12 @@ public class TestDatabaseRecoveryIntegration {
         }
 
         try (Transaction t= db.beginTransaction()) {
-            // `DROP TABLE Students` wasn't rolled back, should still fail when
-            // attempting to query.
+            // `DROP TABLE Students`未被回滚，尝试查询时仍应失败。
             try {
                 t.query("Students").execute();
                 fail("Query should have failed, Students was dropped!");
             } catch (DatabaseException e) {
-                // Make sure fails for correct reason
+                // 确保失败原因正确
                 assertTrue(e.getMessage().contains("does not exist!"));
             }
 
@@ -345,16 +333,14 @@ public class TestDatabaseRecoveryIntegration {
     @Test
     public void testRebootDropTable() {
         /**
-         * Simulates a database crash mid-transaction. In this case, T1 is a
-         * transaction that drops the `Students` table, but does not commit
-         * before the database is rebooted. T2 is a new transaction created
-         * after the database recovers, so it should be able to access the
-         * `Students` table as though it were never dropped at all.
+         * 模拟数据库在事务中途崩溃。在这种情况下，T1是一个删除`Students`表的事务，
+         * 但在数据库重启之前没有提交。T2是在数据库恢复后创建的新事务，
+         * 因此它应该能够访问`Students`表，就像它从未被删除过一样。
          */
         List<Record> oldRecords = new ArrayList<>();
         List<Record> newRecords = new ArrayList<>();
 
-        // Do a full scan of `Students`
+        // 对`Students`进行全表扫描
         Transaction t1 = db.beginTransaction();
         Iterator<Record> records = t1.query("Students").execute();
         while (records.hasNext()) oldRecords.add(records.next());
@@ -364,10 +350,10 @@ public class TestDatabaseRecoveryIntegration {
             t1.query("Students").execute();
             fail("Query should have failed, Students was dropped!");
         } catch (DatabaseException e) {
-            // Make sure fails for correct reason
+            // 确保失败原因正确
             assertTrue(e.getMessage().contains("does not exist!"));
         }
-        // Note: T1 never commits!
+        // 注意：T1从未提交！
         Database old = this.db;
         reloadDatabase(false);
         try (Transaction t2 = db.beginTransaction()) {
@@ -381,13 +367,12 @@ public class TestDatabaseRecoveryIntegration {
     @Test
     public void testRebootPartialDelete() {
         /**
-         * Same as above, but T1 instead attempted to perform a partial deletion
-         * of the records in `Students`.
+         * 与上面相同，但T1尝试对`Students`中的记录执行部分删除。
          */
         List<Record> oldRecords = new ArrayList<>();
         List<Record> newRecords = new ArrayList<>();
 
-        // Do a full scan of `Students`
+        // 对`Students`进行全表扫描
         Transaction t1 = db.beginTransaction();
         Iterator<Record> records = t1.query("Students").execute();
         while (records.hasNext()) oldRecords.add(records.next());
@@ -395,7 +380,7 @@ public class TestDatabaseRecoveryIntegration {
         t1.delete("Students", "gpa", PredicateOperator.GREATER_THAN_EQUALS, DataBox.fromObject(1.86));
         db.getBufferManager().evictAll();
 
-        // Note: Changes flushed, but T1 never commits!
+        // 注意：更改已刷新，但T1从未提交！
         Database old = this.db;
         reloadDatabase(false);
         try (Transaction t2 = db.beginTransaction()) {
@@ -408,7 +393,7 @@ public class TestDatabaseRecoveryIntegration {
 
     @Test
     public void testRebootCreateTable() {
-        // Creates tables, commits, and then reboots
+        // 创建表，提交，然后重启
         try(Transaction t1 = db.beginTransaction()) {
             for (int i = 0; i < 3; i++) {
                 t1.createTable(new Schema().add("int", Type.intType()), "ints" + i);
@@ -430,7 +415,7 @@ public class TestDatabaseRecoveryIntegration {
 
     @Test
     public void testRebootCreateAndDropTable() {
-        // Creates tables, commits, and then reboots
+        // 创建表，提交，然后重启
         try(Transaction t1 = db.beginTransaction()) {
             for (int i = 0; i < 3; i++) {
                 t1.createTable(new Schema().add("int", Type.intType()), "ints" + i);

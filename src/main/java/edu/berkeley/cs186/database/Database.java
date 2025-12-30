@@ -926,6 +926,14 @@ public class Database implements AutoCloseable {
         public void close() {
             try {
                 // TODO(proj4_part2)
+                // 释放所有此事务持有的锁，从下到上释放
+                // 获取事务持有的所有锁，这个是按照锁的顺序获取的
+                List<Lock> locks = lockManager.getLocks(this);
+                for (int i = locks.size() - 1; i >= 0; i--) {
+                    Lock lock = locks.get(i);
+                    LockContext.fromResourceName(lockManager, lock.name).release( this);
+                }
+
                 return;
             } catch (Exception e) {
                 // There's a chance an error message from your release phase
@@ -1056,12 +1064,12 @@ public class Database implements AutoCloseable {
             if (tableName.contains(".") || tableName.contains(" ") || tableName.length() == 0) {
                 throw new IllegalArgumentException("name of new table may not contain '.' or ' ', or be the empty string");
             }
-            // To check whether the table exists we just need to read that table's metadata, if it exists
+            // 检查表是否存在，我们只需要读取该表的元数据（如果存在的话）
             Pair<RecordId, TableMetadata> pair = getTableMetadata(tableName);
             if (pair == null) {
                 throw new DatabaseException("table `" + tableName + "` doesn't exist!");
             }
-            // To drop a table we'll need exclusive access to it's metadata and the metadata of its indices
+            // 删除表需要对表的元数据及其索引的元数据获得独占访问权限
             LockUtil.ensureSufficientLockHeld(getTableMetadataContext(tableName), LockType.X);
             LockUtil.ensureSufficientLockHeld(getTableIndexMetadataContext(tableName), LockType.X);
 
@@ -1079,8 +1087,8 @@ public class Database implements AutoCloseable {
 
         @Override
         public void dropAllTables() {
-            // For something as drastic as dropping all tables we'll want
-            // to get an exclusive lock on the entire database.
+            // 对于像删除所有表这样剧烈的操作，我们需要
+            // 在整个数据库上获取独占锁。
             LockUtil.ensureSufficientLockHeld(lockManager.databaseContext(), LockType.X);
             for (Pair<RecordId, TableMetadata> p: scanTableMetadata()) {
                 dropTable(p.getSecond().tableName);

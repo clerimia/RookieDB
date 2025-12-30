@@ -54,18 +54,17 @@ public class EndCheckpointLogRecord extends LogRecord {
     }
 
     /**
-     * @return size of the record in bytes
+     * @return 记录的字节大小
      */
     public static int getRecordSize(int numDPTRecords, int numTxnTableRecords) {
-        // 1 byte for record type, 2 bytes for DPT size, 2 bytes for txnTable size
-        // DPT: long -> long (16 bytes)
-        // xact: long -> (byte, long) (17 bytes)
+        // 1 字节用于记录类型，2 字节用于 DPT 大小，2 字节用于事务表大小
+        // DPT: long -> long (16 字节)
+        // 事务: long -> (byte, long) (17 字节)
         return 5 + 16 * numDPTRecords + 17 * numTxnTableRecords;
     }
 
     /**
-     * @return boolean indicating whether information for
-     * the log record can fit in one record on a page
+     * @return 布尔值，表示日志记录的信息是否可以容纳在页面的一个记录中
      */
     public static boolean fitsInOneRecord(int numDPTRecords, int numTxnTableRecords) {
         int recordSize = getRecordSize(numDPTRecords, numTxnTableRecords);
