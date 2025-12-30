@@ -729,8 +729,7 @@ public class ARIESRecoveryManager implements RecoveryManager {
      * - 与分区相关（Alloc/Free/UndoAlloc/UndoFree..Part），总是重做它
      * - 分配页面（AllocPage/UndoFreePage），总是重做它
      * - 修改脏页表中的页面（Update/UndoUpdate/Free/UndoAlloc....Page）
-     *   且LSN >= recLSN，从磁盘获取页面，
-     *   检查pageLSN，如有需要重做记录。
+     *   且LSN >= recLSN，从磁盘获取页面，检查pageLSN，如有需要重做记录。
      */
     void restartRedo() {
         // TODO(proj5): implement
@@ -743,7 +742,6 @@ public class ARIESRecoveryManager implements RecoveryManager {
             }
         }
         if (beginLSN == Long.MAX_VALUE) {
-            System.out.println("日志记录为空，不需要REDO");
             return;
         }
 

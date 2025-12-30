@@ -1,15 +1,13 @@
 package edu.berkeley.cs186.database.common;
 
 /**
- * Utilities for getting, setting, and counting bits within a byte or array of
- * bytes.
+ * 用于获取、设置和计算字节或字节数组中位的工具类
  */
 public class Bits {
     public enum Bit { ZERO, ONE }
 
     /**
-     * Get the ith bit of a byte where the 0th bit is the most significant bit
-     * and the 7th bit is the least significant bit. Some examples:
+     * 获取字节的第i位，其中第0位是最高有效位，第7位是最低有效位。一些示例：
      *
      *   - getBit(0b10000000, 7) == ZERO
      *   - getBit(0b10000000, 0) == ONE
@@ -24,8 +22,7 @@ public class Bits {
     }
 
     /**
-     * Get the ith bit of a byte array where the 0th bit is the most significat
-     * bit of the first byte. Some examples:
+     * 获取字节数组的第i位，其中第0位是第一个字节的最高有效位。一些示例：
      *
      *   - getBit(new byte[]{0b10000000, 0b00000000}, 0) == ONE
      *   - getBit(new byte[]{0b01000000, 0b00000000}, 1) == ONE
@@ -40,8 +37,7 @@ public class Bits {
     }
 
     /**
-     * Set the ith bit of a byte where the 0th bit is the most significant bit
-     * and the 7th bit is the least significant bit. Some examples:
+     * 设置字节的第i位，其中第0位是最高有效位，第7位是最低有效位。一些示例：
      *
      *   - setBit(0b00000000, 0, ONE) == 0b10000000
      *   - setBit(0b00000000, 1, ONE) == 0b01000000
@@ -60,8 +56,7 @@ public class Bits {
     }
 
     /**
-     * Set the ith bit of a byte array where the 0th bit is the most significant
-     * bit of the first byte (arr[0]). An example:
+     * 设置字节数组的第i位，其中第0位是第一个字节(arr[0])的最高有效位。一个示例：
      *
      *   byte[] buf = new bytes[2]; // [0b00000000, 0b00000000]
      *   setBit(buf, 0, ONE); // [0b10000000, 0b00000000]
@@ -74,7 +69,7 @@ public class Bits {
     }
 
     /**
-     * Counts the number of set bits. For example:
+     * 计算设置位的数量。例如：
      *
      *   - countBits(0b00001010) == 2
      *   - countBits(0b11111101) == 7
@@ -84,7 +79,7 @@ public class Bits {
     }
 
     /**
-     * Counts the number of set bits.
+     * 计算设置位的数量。
      */
     public static int countBits(byte[] bytes) {
         int count = 0;

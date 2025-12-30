@@ -33,10 +33,10 @@ public class Server {
 
     public static void main(String[] args) {
         // 注意：在尝试运行之前，您可能需要先完成项目4。
-        Database db = new Database("demo", 25, new LockManager());
+        // Database db = new Database("demo", 25, new LockManager());
         
         // 完成项目5（恢复）后使用以下代码
-        // Database db = new Database("demo", 25, new LockManager(), new ClockEvictionPolicy(), true);
+        Database db = new Database("demo", 25, new LockManager(), new ClockEvictionPolicy(), true);
 
         Server server = new Server();
         server.listen(db);
