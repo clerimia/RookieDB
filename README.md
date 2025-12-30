@@ -1,7 +1,5 @@
 # RookieDB - 关系型数据库管理系统
 
-![The official unofficial mascot of the class projects](images/derpydb-small.jpg)
-
 一个功能完整的关系型数据库管理系统实现，基于 UC Berkeley CS186 数据库系统课程项目。本项目实现了现代数据库系统的核心功能，包括 B+ 树索引、查询优化、并发控制和崩溃恢复机制。
 
 ## ✨ 核心特性
