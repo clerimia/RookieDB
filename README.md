@@ -1,0 +1,235 @@
+# RookieDB - 关系型数据库管理系统
+
+![The official unofficial mascot of the class projects](images/derpydb-small.jpg)
+
+一个功能完整的关系型数据库管理系统实现，基于 UC Berkeley CS186 数据库系统课程项目。本项目实现了现代数据库系统的核心功能，包括 B+ 树索引、查询优化、并发控制和崩溃恢复机制。
+
+## ✨ 核心特性
+
+- 🌲 **B+ 树索引**: 高效的数据索引和范围查询支持
+- 🔄 **查询优化**: 基于成本的动态规划优化器，自动选择最优执行计划
+- 🔒 **并发控制**: 实现多粒度锁协议和严格两阶段锁（Strict 2PL）
+- 💾 **崩溃恢复**: 完整的 ARIES 恢复算法实现，支持 WAL 日志
+- 🔥 **火山模型**: 流式查询执行引擎，支持多种连接算法
+- 🗄️ **缓冲管理**: LRU/Clock 页面替换策略
+- 📊 **SQL 支持**: 完整的 SQL 解析器和执行引擎
+
+## 🏗️ 系统架构
+
+```
+┌─────────────────────────────────────────────────┐
+│            客户端层 (Client Layer)               │
+│         Python Client / Netcat / JDBC           │
+└──────────────────┬──────────────────────────────┘
+                   │ TCP Socket (Port 18600)
+┌──────────────────▼──────────────────────────────┐
+│          连接层 (Connection Layer)               │
+│              Server / CLI Interface             │
+└──────────────────┬──────────────────────────────┘
+                   │
+┌──────────────────▼──────────────────────────────┐
+│          SQL处理层 (SQL Processing)              │
+│     Parser → Visitor → QueryPlan → Optimizer    │
+└──────────────────┬──────────────────────────────┘
+                   │
+┌──────────────────▼──────────────────────────────┐
+│          执行引擎层 (Execution Engine)           │
+│       QueryOperators (BNLJ/GHJ/SMJ/Sort)        │
+└──────────────────┬──────────────────────────────┘
+                   │
+┌──────────────────▼──────────────────────────────┐
+│          事务层 (Transaction Layer)              │
+│    Transaction / TransactionContext / ACID      │
+├──────────────┬───────────────┬──────────────────┤
+│  并发控制    │   恢复管理     │   存储引擎       │
+│  LockMgr     │  RecoveryMgr  │  Table/Index    │
+└──────────────┴───────────────┴──────────────────┘
+                   │
+┌──────────────────▼──────────────────────────────┐
+│         缓冲管理器 (Buffer Manager)              │
+│           LRU / Clock Eviction Policy           │
+└──────────────────┬──────────────────────────────┘
+                   │
+┌──────────────────▼──────────────────────────────┐
+│         磁盘管理器 (Disk Space Manager)          │
+│              Partition / Page I/O               │
+└─────────────────────────────────────────────────┘
+```
+
+## 🚀 快速开始
+
+### 前置要求
+
+- Java 11 或更高版本
+- Maven 3.6+
+- Docker（可选，用于容器化部署）
+
+### 本地运行
+
+```bash
+# 克隆项目
+git clone <repository-url>
+cd sp25-rookiedb
+
+# 编译项目
+mvn clean compile
+
+# 运行测试
+mvn test
+
+# 启动数据库服务器
+mvn exec:java -Dexec.mainClass="edu.berkeley.cs186.database.cli.Server"
+```
+
+### Docker 部署
+
+```bash
+# 构建镜像
+docker build -t rookiedb .
+
+# 运行容器（端口映射）
+docker run -d -p 18600:18600 --name rookiedb-server rookiedb
+
+# 查看日志
+docker logs rookiedb-server
+```
+
+### 连接到数据库
+
+**使用 Python 客户端：**
+```bash
+python client.py
+```
+
+**使用 Netcat：**
+```bash
+nc localhost 18600
+# 或
+netcat localhost 18600
+```
+
+**SQL 查询示例：**
+```sql
+-- 创建表
+CREATE TABLE students (id INT, name VARCHAR(50), gpa FLOAT);
+
+-- 插入数据
+INSERT INTO students VALUES (1, 'Alice', 3.8);
+INSERT INTO students VALUES (2, 'Bob', 3.5);
+
+-- 查询数据
+SELECT * FROM students WHERE gpa > 3.6;
+
+-- 创建索引
+CREATE INDEX idx_gpa ON students(gpa);
+
+-- 开始事务
+BEGIN TRANSACTION;
+INSERT INTO students VALUES (3, 'Charlie', 3.9);
+COMMIT;
+```
+
+## 📁 项目结构
+
+```
+sp25-rookiedb/
+├── src/main/java/edu/berkeley/cs186/database/
+│   ├── cli/              # 命令行界面和服务器
+│   │   ├── parser/       # SQL解析器（JavaCC生成）
+│   │   └── visitor/      # AST访问者模式实现
+│   ├── concurrency/      # 并发控制（锁管理器）
+│   ├── databox/          # 数据类型系统
+│   ├── index/            # B+树索引实现
+│   ├── io/               # 磁盘空间管理
+│   ├── memory/           # 缓冲管理器
+│   ├── query/            # 查询优化和执行
+│   │   └── plan/         # 查询计划和算子
+│   ├── recovery/         # ARIES恢复算法
+│   └── table/            # 表和记录管理
+├── src/test/             # 单元测试和集成测试
+├── .devcontainer/        # 开发容器配置
+├── Dockerfile            # Docker部署配置
+├── pom.xml               # Maven构建配置
+└── README.md             # 项目文档
+```
+
+## 🔧 技术实现
+
+### 1. B+ 树索引
+- 支持高效的点查询和范围查询
+- 自动页面分裂和合并
+- 支持批量加载优化
+
+### 2. 查询优化器
+- 基于成本的动态规划算法
+- 左深连接树生成
+- 支持多种连接算法选择（BNLJ, GHJ, SMJ）
+
+### 3. 并发控制
+- 多粒度锁（IS, IX, S, X, SIX）
+- 严格两阶段锁协议（Strict 2PL）
+- 死锁检测和处理
+
+### 4. 恢复机制
+- ARIES 恢复算法（Analysis, Redo, Undo）
+- 写前日志（WAL）
+- 检查点机制
+- 模糊检查点支持
+
+### 5. 执行引擎
+- 火山模型（迭代器模型）
+- 流水线执行
+- 支持多种连接算法：
+  - 块嵌套循环连接（BNLJ）
+  - 优雅哈希连接（GHJ）
+  - 排序归并连接（SMJ）
+
+## 📊 性能特点
+
+- **索引查询**: O(log n) 时间复杂度
+- **缓冲管理**: 高效的页面缓存策略
+- **并发支持**: 支持多客户端同时连接
+- **事务吞吐**: 完整的 ACID 保证
+
+## 🧪 测试
+
+```bash
+# 运行所有测试
+mvn test
+
+# 运行特定项目的测试
+mvn test -Dproj=2  # 测试B+树索引
+
+# 运行公开测试
+mvn test -P public
+
+# 运行系统测试
+mvn test -P system
+```
+
+## 📚 参考资料
+
+- [Database System Concepts](https://www.db-book.com/) - Silberschatz, Korth, Sudarshan
+- [ARIES: A Transaction Recovery Method](https://dl.acm.org/doi/10.1145/128765.128770) - C. Mohan et al.
+- [UC Berkeley CS186 Course](https://cs186berkeley.net/)
+
+## 🤝 贡献
+
+本项目基于 UC Berkeley CS186 课程项目开发，用于学习和研究目的。
+
+## 📄 许可证
+
+本项目仅供学习和研究使用。
+
+## ⚠️ 安全提示
+
+本数据库服务器设计用于教学和开发环境，**不建议暴露到公共网络**：
+- 没有内置的身份验证机制
+- 没有加密传输
+- 仅适合在受信任的网络环境中使用
+
+---
+
+**开发者**: 基于 UC Berkeley CS186 Spring 2025 课程项目
+
+**技术栈**: Java 11 · Maven · JavaCC · Docker
