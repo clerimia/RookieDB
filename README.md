@@ -19,7 +19,7 @@
 ```
 ┌─────────────────────────────────────────────────┐
 │            客户端层 (Client Layer)               │
-│         Python Client / Netcat / JDBC           │
+│              Python Client (client.py)          │
 └──────────────────┬──────────────────────────────┘
                    │ TCP Socket (Port 18600)
 ┌──────────────────▼──────────────────────────────┐
@@ -83,9 +83,19 @@ mvn exec:java -Dexec.mainClass="edu.berkeley.cs186.database.cli.Server"
 
 ### Docker 部署
 
-**前提条件**：确保 Docker Desktop 已启动并正常运行
+**前提条件**：
+- 确保 Docker Desktop 已启动并正常运行
+- 本地已完成项目构建（生成 JAR 文件）
 
-#### 方式一：使用 Docker Compose（推荐）
+#### 步骤一：本地构建项目
+
+```bash
+# 编译并打包项目（需要先在本地构建）
+mvn clean package -DskipTests
+   
+```
+
+#### 步骤二：使用 Docker Compose（推荐）
 
 ```bash
 # 启动服务（自动构建镜像）
@@ -116,7 +126,7 @@ docker-compose down -v
 docker-compose up -d --build
 ```
 
-#### 方式二：直接使用 Docker
+#### 步骤三：直接使用 Docker（可选）
 
 ```bash
 # 1. 构建镜像（第一次构建可能需要几分钟）
@@ -131,16 +141,13 @@ docker ps
 # 4. 查看日志
 docker logs rookiedb-server
 
-# 5. 健康检查
-docker exec rookiedb-server nc -z localhost 18600 && echo "服务正常运行"
-
-# 6. 停止容器
+# 5. 停止容器
 docker stop rookiedb-server
 
-# 7. 重新启动容器
+# 6. 重新启动容器
 docker start rookiedb-server
 
-# 8. 删除容器
+# 7. 删除容器
 docker rm -f rookiedb-server
 ```
 
@@ -168,60 +175,111 @@ docker run -d -p 18600:18600 \
 - `environment`: JVM 内存配置
 - `volumes`: 数据持久化到命名卷 `rookiedb-data`
 - `restart`: 容器自动重启策略
-- `healthcheck`: 健康检查，每30秒检查一次
 - `networks`: 独立网络隔离
 
 ### 连接到数据库
 
-**使用 Python 客户端：**
+启动数据库服务器后，在本机使用 Python 客户端连接：
+
 ```bash
+# 进入项目根目录
+cd sp25-rookiedb
+
+# 运行 Python 客户端连接数据库
 python client.py
 ```
 
-**使用 Netcat：**
-```bash
-nc localhost 18600
-# 或
-netcat localhost 18600
-```
+> **注意**：需要 Python 3 环境，client.py 位于项目根目录
 
-**从 Docker 容器内连接：**
-```bash
-# 进入容器
-docker exec -it rookiedb-server bash
+## 💻 SQL 查询示例
 
-# 在容器内连接
-nc localhost 18600
-```
+### 预置测试数据
+项目提供了三个示例 CSV 文件用于数据加载和查询测试，包含以下表结构：
 
-**使用 docker-compose 连接：**
-```bash
-# 查看服务日志（实时）
-docker-compose logs -f rookiedb
-
-# 在容器中执行命令
-docker-compose exec rookiedb nc localhost 18600
-```
-
-**SQL 查询示例：**
+**Student.csv** - 学生信息表
 ```sql
--- 创建表
-CREATE TABLE students (id INT, name VARCHAR(50), gpa FLOAT);
+CREATE TABLE Students{
+    cid INT,
+    name STRING(20),
+    major STRING(20),
+    grade FLOAT
+};
+```
 
--- 插入数据
-INSERT INTO students VALUES (1, 'Alice', 3.8);
-INSERT INTO students VALUES (2, 'Bob', 3.5);
+**Enrollments.csv** - 选课记录表  
+```sql
+CREATE TABLE Enrollments{
+    sid INT,
+    cid INT    
+};
+```
 
--- 查询数据
-SELECT * FROM students WHERE gpa > 3.6;
+**Courses.csv** - 课程信息表
+```sql
+CREATE TABLE Courses{
+    cid INT,
+    name STRING(20),
+    department STRING(20)
+};
+```
 
--- 创建索引
+### 基础 DDL 操作
+```sql
+-- 创建表（注意：字符串类型使用 STRING 而非 VARCHAR）
+CREATE TABLE Employee (
+    id INT,
+    name STRING(50),
+    gpa FLOAT
+);
+```
+
+```sql
+-- 创建索引以优化查询性能
 CREATE INDEX idx_gpa ON students(gpa);
+```
 
--- 开始事务
+### 数据操作 (DML)
+```sql
+-- 插入记录
+INSERT INTO students VALUES (1, 'Alice', 'CS', 3.8);
+INSERT INTO students VALUES (2, 'Bob', 'EE', 3.5);
+```
+
+```sql
+-- 条件查询
+SELECT * FROM students WHERE gpa > 3.6;
+```
+
+```sql
+-- 批量插入
+INSERT INTO students VALUES 
+    (3, 'Charlie', 3.9),
+    (4, 'Diana', 3.7);
+```
+
+### 事务管理
+```sql
+-- 事务控制示例
 BEGIN TRANSACTION;
-INSERT INTO students VALUES (3, 'Charlie', 3.9);
-COMMIT;
+INSERT INTO students VALUES (5, 'Eve', 4.0);
+UPDATE students SET gpa = 3.9 WHERE name = 'Bob';
+COMMIT;  -- 或 ROLLBACK; 撤销更改
+```
+
+### 系统元命令
+```sql
+-- 查看所有表信息
+\d;
+```
+
+```sql
+-- 查看特定表结构
+\d students;
+```
+
+```sql
+-- 查看事务占有的锁
+\lock;
 ```
 
 ## 📁 项目结构
@@ -242,7 +300,8 @@ sp25-rookiedb/
 │   ├── recovery/         # ARIES恢复算法
 │   └── table/            # 表和记录管理
 ├── src/test/             # 单元测试和集成测试
-├── .devcontainer/        # 开发容器配置
+├── src/main/resources/   # 配置文件、示例表格(将被loadCSV加载)
+├── docker-compose.yml    # Docker compose配置
 ├── Dockerfile            # Docker部署配置
 ├── pom.xml               # Maven构建配置
 └── README.md             # 项目文档
@@ -361,7 +420,7 @@ mvn exec:java -Dexec.mainClass="edu.berkeley.cs186.database.cli.Server"
 **无法连接到数据库服务器**
 - 检查容器是否运行：`docker ps`
 - 检查端口映射：`docker port rookiedb-server`
-- 测试连接：`nc -zv localhost 18600`
+- 检查 Python 版本：`python --version`（需要 Python 3）
 
 ## ⚠️ 安全提示
 

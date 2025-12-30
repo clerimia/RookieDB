@@ -38,6 +38,14 @@ public class Server {
         // 完成项目5（恢复）后使用以下代码
         Database db = new Database("demo", 25, new LockManager(), new ClockEvictionPolicy(), true);
 
+        // 加载演示表（Students, Courses, Enrollments）
+        try {
+            db.loadDemo();
+            System.out.println("演示表加载成功");
+        } catch (Exception e) {
+            System.err.println("加载演示表失败: " + e.getMessage());
+        }
+
         Server server = new Server();
         server.listen(db);
         db.close();
