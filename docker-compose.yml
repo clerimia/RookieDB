@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # RookieDB 数据库服务器
+  rookiedb:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rookiedb-server
+    ports:
+      - "18600:18600"
+    environment:
+      # JVM 内存配置
+      - JAVA_OPTS=-Xms256m -Xmx512m
+    volumes:
+      # 持久化数据库文件
+      - rookiedb-data:/app/demo
+      # 可选：挂载日志目录
+      # - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "18600"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    networks:
+      - rookiedb-network
+
+  # 可选：添加一个测试客户端容器
+  # rookiedb-client:
+  #   image: python:3.9-slim
+  #   container_name: rookiedb-client
+  #   depends_on:
+  #     - rookiedb
+  #   volumes:
+  #     - ./client.py:/app/client.py
+  #   working_dir: /app
+  #   command: tail -f /dev/null  # 保持容器运行
+  #   networks:
+  #     - rookiedb-network
+
+# 数据卷定义
+volumes:
+  rookiedb-data:
+    driver: local
+    # 可选：指定主机路径
+    # driver_opts:
+    #   type: none
+    #   o: bind
+    #   device: ./data
+
+# 网络定义
+networks:
+  rookiedb-network:
+    driver: bridge
