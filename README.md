@@ -189,6 +189,577 @@ python client.py
 
 > **注意**：需要 Python 3 环境，client.py 位于项目根目录
 
+## 🚀 支持的 SQL 语句
+
+> 本文档基于 `RookieParser.jjt` 解析器定义和相关 Java 实现整理
+
+### 1. 数据类型
+
+RookieDB 支持以下基本数据类型（详见 `TypeId.java`）：
+
+| 类型 | 描述 | 字节数 | 示例 |
+|------|------|--------|------|
+| **BOOL** | 布尔类型 | 1 | `true`, `false` |
+| **INT** | 32 位整数 | 4 | `42`, `-100` |
+| **LONG** | 64 位整数 | 8 | `9223372036854775807` |
+| **FLOAT** | 单精度浮点数 | 4 | `3.14`, `-0.5` |
+| **STRING(n)** | 固定长度字符串 | n | `'hello'` (n=5) |
+| **BYTE_ARRAY(n)** | 字节数组 | n | 二进制数据 |
+
+**重要限制：**
+- ❌ 不支持 NULL 值（所有字段必须有值）
+- ❌ 不支持约束（PRIMARY KEY、FOREIGN KEY、UNIQUE、CHECK、NOT NULL）
+- ✅ 数值类型使用 Java 基本类型（int、long、float），无法表示空值
+
+### 2. 表达式与操作符
+
+#### 2.1 聚合函数（Aggregate Functions）
+
+详见 `AggregateFunction.java` 实现。
+
+**统计类聚合函数**
+
+| 函数 | 说明 | 适用类型 | 返回类型 | 示例 |
+|------|------|----------|----------|------|
+| `COUNT(*)` | 计数所有行 | 所有类型 | INT | `SELECT COUNT(*) FROM t` |
+| `COUNT(column)` | 计数非空列 | 所有类型 | INT | `SELECT COUNT(id) FROM t` |
+| `SUM(column)` | 求和 | BOOL, INT, LONG, FLOAT | 同输入类型 | `SELECT SUM(salary) FROM emp` |
+| `AVG(column)` | 平均值 | INT, LONG, FLOAT | FLOAT | `SELECT AVG(age) FROM users` |
+| `MIN(column)` | 最小值 | 所有类型 | 同输入类型 | `SELECT MIN(price) FROM products` |
+| `MAX(column)` | 最大值 | 所有类型 | 同输入类型 | `SELECT MAX(score) FROM tests` |
+
+**统计分析函数**
+
+| 函数 | 说明 | 适用类型 | 返回类型 | 公式 |
+|------|------|----------|----------|------|
+| `RANGE(column)` | 极差（最大值-最小值） | INT, LONG, FLOAT | 同输入类型 | MAX - MIN |
+| `VAR(column)` | 方差 | INT, LONG, FLOAT | FLOAT | σ² |
+| `STDDEV(column)` | 标准差 | INT, LONG, FLOAT | FLOAT | √σ² |
+
+**序列类聚合函数**
+
+| 函数 | 说明 | 适用类型 | 返回类型 |
+|------|------|----------|----------|
+| `FIRST(column)` | 返回第一行的值 | 所有类型 | 同输入类型 |
+| `LAST(column)` | 返回最后一行的值 | 所有类型 | 同输入类型 |
+| `RANDOM(column)` | 随机返回一个值 | 所有类型 | 同输入类型 |
+
+**聚合函数使用限制**
+
+- ❌ 不支持嵌套聚合函数（如 `SUM(AVG(x))` 不支持）
+- ❌ 每个聚合函数只接受一个参数（COUNT 可使用 `*`）
+- ❌ STRING 和 BYTE_ARRAY 不支持数值运算函数（SUM、AVG、VAR、STDDEV、RANGE）
+- ❌ 不支持 DISTINCT 关键字（如 `COUNT(DISTINCT col)` 不支持）
+
+#### 2.2 单行函数（Scalar Functions）
+
+详见 `NamedFunction.java` 实现。
+
+**字符串函数**
+
+| 函数 | 说明 | 参数类型 | 返回类型 | 示例 |
+|------|------|----------|----------|------|
+| `UPPER(str)` | 转大写 | STRING | STRING | `UPPER('hello')` → `'HELLO'` |
+| `LOWER(str)` | 转小写 | STRING | STRING | `LOWER('WORLD')` → `'world'` |
+| `REPLACE(str, from, to)` | 字符串替换 | STRING × 3 | STRING | `REPLACE('hello', 'l', 'r')` → `'herro'` |
+
+**数学函数**
+
+| 函数 | 说明 | 适用类型 | 返回类型 | 示例 |
+|------|------|----------|----------|------|
+| `FLOOR(num)` | 向下取整 | INT, LONG, FLOAT | LONG | `FLOOR(3.7)` → `3` |
+| `CEIL(num)` | 向上取整 | INT, LONG, FLOAT | LONG | `CEIL(3.2)` → `4` |
+| `ROUND(num)` | 四舍五入 | INT, LONG, FLOAT | LONG | `ROUND(3.5)` → `4` |
+| `NEGATE(num)` | 取负数 | INT, LONG, FLOAT | 同输入类型 | `NEGATE(5)` → `-5` |
+
+**函数使用限制**
+
+- ❌ 字符串函数不适用于数值类型
+- ❌ 数学函数不支持 STRING、BYTE_ARRAY、BOOL 类型
+- ✅ 可以在 SELECT、WHERE 等子句中使用
+
+#### 2.3 操作符（Operators）
+
+**比较操作符**
+
+| 操作符 | 说明 | 示例 | 备注 |
+|--------|------|------|------|
+| `=`, `==` | 等于 | `age = 18` | 两种写法等价 |
+| `!=`, `<>` | 不等于 | `status != 'active'` | 两种写法等价 |
+| `<` | 小于 | `price < 100` | |
+| `<=` | 小于等于 | `age <= 65` | |
+| `>` | 大于 | `salary > 5000` | |
+| `>=` | 大于等于 | `score >= 60` | |
+
+**逻辑操作符**
+
+| 操作符 | 说明 | 示例 | 优先级 |
+|--------|------|------|--------|
+| `NOT`, `!` | 逻辑非 | `NOT active` | 高 |
+| `AND`, `&&` | 逻辑与 | `age > 18 AND age < 65` | 中 |
+| `OR`, `\|\|` | 逻辑或 | `status = 'A' OR status = 'B'` | 低 |
+
+**算术操作符**
+
+| 操作符 | 说明 | 示例 | 适用类型 |
+|--------|------|------|----------|
+| `+` | 加法 | `price + tax` | INT, LONG, FLOAT |
+| `-` | 减法 | `total - discount` | INT, LONG, FLOAT |
+| `*` | 乘法 | `quantity * price` | INT, LONG, FLOAT |
+| `/` | 除法 | `total / count` | INT, LONG, FLOAT |
+| `%` | 取模 | `id % 10` | INT, LONG, FLOAT |
+
+**运算优先级（从高到低）**
+
+1. 括号 `()`
+2. 一元操作符（`-`, `NOT`）
+3. 乘除模 (`*`, `/`, `%`)
+4. 加减 (`+`, `-`)
+5. 比较操作符 (`=`, `<`, `>`, 等)
+6. 逻辑非 (`NOT`)
+7. 逻辑与 (`AND`)
+8. 逻辑或 (`OR`)
+
+### 3. DQL 数据查询语句
+
+#### 语法结构
+```sql
+[WITH cte_name [(column_name [, ...])] AS (SELECT ...)
+     [, cte_name [(column_name [, ...])] AS (SELECT ...)]*]
+SELECT select_item [, select_item]*
+FROM table_name [AS alias]
+     [[INNER] JOIN table_name [AS alias] ON column1 = column2]*
+[WHERE condition [AND condition]*]
+[GROUP BY column_name [, column_name]*]
+[ORDER BY column_name]
+[LIMIT number]
+```
+
+#### 子句说明
+
+**WITH 子句（公共表表达式 CTE）**
+- 支持定义一个或多个临时命名结果集
+- 可选择性地指定列名列表
+- 多个CTE用逗号分隔
+- 示例：`WITH high_earners AS (SELECT * FROM employees WHERE salary > 10000)`
+
+**SELECT 子句**
+- `*` - 选择所有列
+- `table.*` - 选择指定表的所有列
+- `expression [AS alias]` - 支持表达式和列别名
+- 支持函数调用表达式（聚合函数、单行函数）
+- 示例：`SELECT id, name, salary * 1.1 AS new_salary`
+
+**FROM 子句**
+- 支持表别名：`FROM table_name AS alias`
+- 支持多表连接（仅内连接）
+- 示例：`FROM employees AS e`
+
+**JOIN 子句**
+- 仅支持 INNER JOIN（内连接）
+- 连接条件必须是等值条件
+- 支持多次连接
+- 语法：`[INNER] JOIN table_name [AS alias] ON column1 = column2`
+- 示例：`JOIN departments d ON e.dept_id = d.id`
+
+**WHERE 子句**
+- 支持列与字面量的比较
+- 支持 AND 连接多个条件（最多2个条件）
+- 比较运算符：`=`, `==`, `!=`, `<>`, `<`, `<=`, `>`, `>=`
+- 示例：`WHERE age > 25 AND salary > 5000`
+
+**GROUP BY 子句**
+- 支持单列或多列分组
+- 多个列用逗号分隔
+- 示例：`GROUP BY department, job_title`
+
+**ORDER BY 子句**
+- **仅支持单列排序**
+- **仅支持升序排序（ASC，自然顺序）**
+- 不支持 DESC（降序）
+- 不支持多列排序
+- 示例：`ORDER BY salary`
+
+**LIMIT 子句**
+- 限制返回的结果行数
+- 接受整数字面量
+- 示例：`LIMIT 10`
+
+#### 完整示例
+```sql
+-- 基本查询
+SELECT * FROM employees;
+
+-- 带条件和排序
+SELECT id, name, salary 
+FROM employees 
+WHERE salary > 5000 AND department = 'IT'
+ORDER BY salary 
+LIMIT 10;
+
+-- 连接查询
+SELECT e.name, d.department_name
+FROM employees AS e
+INNER JOIN departments AS d ON e.dept_id = d.id
+WHERE e.salary > 8000;
+
+-- 分组聚合
+SELECT department, COUNT(*) as emp_count, AVG(salary) as avg_salary
+FROM employees
+GROUP BY department;
+
+-- 使用CTE
+WITH high_earners AS (
+    SELECT * FROM employees WHERE salary > 10000
+)
+SELECT department, COUNT(*) 
+FROM high_earners 
+GROUP BY department;
+```
+
+
+
+### 4. 查询计划分析（EXPLAIN）
+
+使用 `EXPLAIN` 关键字查看查询执行计划：
+
+```sql
+EXPLAIN SELECT * FROM employees WHERE salary > 5000;
+```
+
+**功能说明：**
+- 显示查询的执行计划树
+- 展示使用的操作符（扫描、连接、排序等）
+- 帮助理解查询优化过程
+- 用于性能分析和调优
+
+
+
+### 5. DML 数据操作语句
+
+#### 5.1 INSERT - 插入数据
+
+**语法：**
+```sql
+INSERT INTO table_name VALUES (value1, value2, ...)[, (value1, value2, ...)]*;
+```
+
+**说明：**
+- ✅ 支持单行插入
+- ✅ 支持批量插入（多个 VALUES）
+- ❌ 不支持指定列名（必须提供所有列的值）
+- ❌ 不支持 INSERT ... SELECT 语法
+
+**示例：**
+```sql
+-- 单行插入
+INSERT INTO users VALUES (1, 'Alice', 25);
+
+-- 批量插入
+INSERT INTO users VALUES 
+    (1, 'Alice', 25),
+    (2, 'Bob', 30),
+    (3, 'Charlie', 28);
+```
+
+#### 5.2 UPDATE - 更新数据
+
+**语法：**
+```sql
+UPDATE table_name SET column_name = expression [WHERE expression];
+```
+
+**说明：**
+- ✅ 支持基于表达式的更新
+- ⚠️ 一次只能更新一个列
+- ✅ WHERE 子句可选（省略则更新所有行）
+- ✅ WHERE 条件支持复杂表达式
+
+**示例：**
+```sql
+-- 更新单个字段
+UPDATE employees SET salary = salary * 1.1 WHERE department = 'IT';
+
+-- 更新所有行
+UPDATE products SET status = 'active';
+```
+
+#### 5.3 DELETE - 删除数据
+
+**语法：**
+```sql
+DELETE FROM table_name WHERE expression;
+```
+
+**说明：**
+- ⚠️ WHERE 子句是必需的（防止误删全表）
+- ✅ WHERE 条件支持复杂表达式
+
+**示例：**
+```sql
+DELETE FROM users WHERE age < 18;
+DELETE FROM orders WHERE status = 'cancelled' AND created_date < '2023-01-01';
+```
+
+### 6. DDL 数据定义语句
+
+#### 6.1 CREATE TABLE - 创建表
+
+**语法方式一：指定列定义**
+```sql
+CREATE TABLE table_name (
+    column1 type1 [(size)],
+    column2 type2 [(size)],
+    ...
+);
+```
+
+**语法方式二：从查询结果创建**
+```sql
+CREATE TABLE table_name AS SELECT ...;
+```
+
+**示例：**
+```sql
+-- 基本建表
+CREATE TABLE employees (
+    id INT,
+    name STRING(50),
+    salary FLOAT,
+    active BOOL
+);
+
+-- 从查询结果创建表
+CREATE TABLE high_earners AS 
+    SELECT * FROM employees WHERE salary > 10000;
+```
+
+**限制：**
+- ❌ 不支持约束（PRIMARY KEY、FOREIGN KEY、UNIQUE、CHECK、NOT NULL、DEFAULT）
+- ❌ 不支持自增列
+- ✅ STRING 和 BYTE_ARRAY 类型必须指定长度
+
+#### 6.2 DROP TABLE - 删除表
+
+**语法：**
+```sql
+DROP TABLE table_name;
+```
+
+**示例：**
+```sql
+DROP TABLE old_data;
+```
+
+#### 6.3 CREATE INDEX - 创建索引
+
+**语法：**
+```sql
+CREATE INDEX ON table_name (column_name);
+```
+
+**示例：**
+```sql
+CREATE INDEX ON employees (department);
+CREATE INDEX ON orders (customer_id);
+```
+
+**索引特性：**
+- ✅ 使用 B+ 树数据结构
+- ✅ 自动维护索引一致性
+- ⚠️ 每个列最多创建一个索引
+- ❌ 不支持复合索引（多列索引）
+- ❌ 不支持唯一索引、全文索引等特殊类型
+
+#### 6.4 DROP INDEX - 删除索引
+
+**语法：**
+```sql
+DROP INDEX table_name (column_name);
+```
+
+**示例：**
+```sql
+DROP INDEX employees (department);
+```
+
+### 7. TCL 事务控制语句
+
+RookieDB 实现了完整的 ACID 事务支持，使用可串行化隔离级别和 ARIES 恢复算法。
+
+#### 7.1 BEGIN - 开始事务
+
+**语法：**
+```sql
+BEGIN [TRANSACTION];
+```
+
+**示例：**
+```sql
+BEGIN;
+BEGIN TRANSACTION;
+```
+
+#### 7.2 COMMIT - 提交事务
+
+**语法：**
+```sql
+COMMIT [TRANSACTION];
+END [TRANSACTION];
+```
+
+**示例：**
+```sql
+BEGIN;
+INSERT INTO accounts VALUES (1, 1000);
+UPDATE accounts SET balance = balance - 100 WHERE id = 1;
+COMMIT;
+```
+
+#### 7.3 ROLLBACK - 回滚事务
+
+**完全回滚：**
+```sql
+ROLLBACK [TRANSACTION];
+```
+
+**回滚到保存点：**
+```sql
+ROLLBACK [TRANSACTION] TO [SAVEPOINT] savepoint_name;
+```
+
+**示例：**
+```sql
+-- 完全回滚
+BEGIN;
+DELETE FROM orders WHERE status = 'pending';
+ROLLBACK;  -- 撤销删除操作
+
+-- 部分回滚
+BEGIN;
+INSERT INTO logs VALUES (1, 'start');
+SAVEPOINT sp1;
+DELETE FROM logs WHERE id > 100;
+ROLLBACK TO sp1;  -- 只撤销删除，保留插入
+COMMIT;
+```
+
+#### 7.4 SAVEPOINT - 设置保存点
+
+**语法：**
+```sql
+SAVEPOINT savepoint_name;
+```
+
+**说明：**
+- 在事务中创建一个命名的保存点
+- 允许部分回滚到该保存点
+- 支持嵌套保存点
+
+**示例：**
+```sql
+BEGIN;
+INSERT INTO users VALUES (1, 'Alice');
+SAVEPOINT after_insert;
+UPDATE users SET name = 'Bob' WHERE id = 1;
+ROLLBACK TO after_insert;  -- 撤销更新，保留插入
+COMMIT;
+```
+
+#### 7.5 RELEASE - 释放保存点
+
+**语法：**
+```sql
+RELEASE [SAVEPOINT] savepoint_name;
+```
+
+**说明：**
+- 删除指定的保存点
+- 释放后无法再回滚到该保存点
+- 不影响事务中的数据修改
+
+**示例：**
+```sql
+BEGIN;
+SAVEPOINT sp1;
+INSERT INTO data VALUES (1);
+RELEASE sp1;  -- 释放保存点
+-- 现在无法 ROLLBACK TO sp1
+COMMIT;
+```
+
+**事务特性：**
+- ✅ 可串行化隔离级别（Serializable）
+- ✅ 严格两阶段锁协议（Strict 2PL）
+- ✅ ARIES 恢复算法（支持崩溃恢复）
+- ✅ 支持嵌套保存点
+- ✅ 死锁检测和处理
+
+### 8. 批量 SQL 语句执行
+
+**语法：**
+```sql
+statement1; statement2; statement3; ...
+```
+
+**说明：**
+- 使用分号 `;` 分隔多个 SQL 语句
+- 按顺序依次执行
+- 所有语句在同一个事务中执行（如果已开启事务）
+
+**示例：**
+```sql
+CREATE TABLE users (id INT, name STRING(50));
+INSERT INTO users VALUES (1, 'Alice'), (2, 'Bob');
+SELECT * FROM users;
+```
+
+---
+
+## 📋 语法限制总结
+
+### 不支持的 SQL 特性
+
+**数据类型相关：**
+- ❌ NULL 值
+- ❌ DATE、TIME、TIMESTAMP 等时间类型
+- ❌ DECIMAL、NUMERIC 等精确数值类型
+- ❌ 可变长度字符串（VARCHAR 实际为固定长度）
+- ❌ BLOB、CLOB 等大对象类型
+
+**约束相关：**
+- ❌ PRIMARY KEY（主键）
+- ❌ FOREIGN KEY（外键）
+- ❌ UNIQUE（唯一约束）
+- ❌ CHECK（检查约束）
+- ❌ NOT NULL（非空约束）
+- ❌ DEFAULT（默认值）
+- ❌ AUTO_INCREMENT（自增）
+
+**查询相关：**
+- ❌ 外连接（LEFT JOIN、RIGHT JOIN、FULL OUTER JOIN）
+- ❌ 子查询（除了 CREATE TABLE AS SELECT）
+- ❌ UNION、INTERSECT、EXCEPT 集合操作
+- ❌ HAVING 子句
+- ❌ DISTINCT 关键字
+- ❌ ORDER BY 降序（DESC）
+- ❌ ORDER BY 多列排序
+- ❌ 窗口函数
+- ❌ 递归查询
+
+**DML 相关：**
+- ❌ INSERT 指定列名
+- ❌ INSERT ... SELECT
+- ❌ UPDATE 多列
+- ❌ MERGE/UPSERT
+
+**其他：**
+- ❌ 视图（VIEW）
+- ❌ 存储过程和函数
+- ❌ 触发器（TRIGGER）
+- ❌ 用户权限管理
+- ❌ 数据库和模式（DATABASE/SCHEMA）
+
 ## 💻 SQL 查询示例
 
 ### 预置测试数据

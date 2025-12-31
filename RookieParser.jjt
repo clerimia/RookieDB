@@ -474,11 +474,9 @@ void comparison_expression() #ComparisonExpression:
 {}
 { additive_expression() (LOOKAHEAD(2) comparison_operator() additive_expression())*}
 
-
 void additive_expression() #AdditiveExpression:
 {}
 { multiplicative_expression() (LOOKAHEAD(2) additive_operator() multiplicative_expression())* }
-
 
 void multiplicative_expression() #MultiplicativeExpression:
 {}
